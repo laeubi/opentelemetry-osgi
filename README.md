@@ -144,6 +144,19 @@ Registers a `LogListener` with the `LogReaderService` to capture all log entries
 - **`LogBridgeComponent`** — Forwards every `LogEntry` as an OpenTelemetry log record with mapped severity, plus attributes for bundle info, service reference, logger name, thread, source location, and exceptions
 - **`LogMetricsComponent`** — Counts log entries as OpenTelemetry metrics, grouped by log level and bundle (with a dedicated error counter)
 
+### `opentelemetry-osgi-karaf-feature`
+
+[Apache Karaf](https://karaf.apache.org/) feature descriptor for easy deployment into a Karaf container.
+Uses Karaf's `wrap:` protocol to turn the non-OSGi OpenTelemetry SDK JARs into proper OSGi bundles — no system-packages hack or manual wrapping needed.
+
+Provides three installable features:
+
+- **`opentelemetry-deps`** — All 14 OpenTelemetry SDK JARs wrapped as OSGi bundles (reusable by other projects)
+- **`opentelemetry-osgi`** — Integration bundles (runtime, core, scr, log) + OTel deps + SCR feature + default configuration
+- **`opentelemetry-osgi-demo`** — Adds the demo client module for generating sample telemetry
+
+Includes an example `io.opentelemetry.osgi.runtime.cfg` configuration file.
+
 ## Prerequisites
 
 - Java 21 or later
@@ -152,18 +165,58 @@ Registers a `LogListener` with the `LogReaderService` to capture all log entries
 ## Building
 
 ```bash
-mvn clean verify
+mvn clean install
 ```
 
-This builds all seven modules.
+This builds all eight modules including the Karaf feature descriptor.
 The agent extension module produces a plain JAR (no shading needed — all dependencies are provided by the javaagent at runtime).
 
 ## Usage
 
-### Runtime + Client (OSGi Service Approach)
+### Karaf Deployment (Recommended)
+
+The easiest way to deploy into an OSGi container is via the Karaf feature.
+After building, install the feature in a running [Apache Karaf](https://karaf.apache.org/) container:
+
+```bash
+# Register the feature repository
+feature:repo-add mvn:io.opentelemetry.osgi/opentelemetry-osgi-karaf-feature/0.1.0-SNAPSHOT/xml/features
+
+# Install the integration (wraps OTel JARs, deploys bundles, configures runtime)
+feature:install opentelemetry-osgi
+
+# Optionally install the demo client
+feature:install opentelemetry-osgi-demo
+```
+
+The `opentelemetry-osgi` feature:
+- Wraps all OpenTelemetry SDK JARs as OSGi bundles via Karaf's `wrap:` protocol
+- Deploys the runtime, core, scr, and log bundles
+- Installs a default configuration (logging exporter)
+- Pulls in the `scr` feature for Declarative Services
+
+To switch to OTLP export, edit `etc/io.opentelemetry.osgi.runtime.cfg`:
+
+```properties
+exporterType = otlp
+otlpEndpoint = http://localhost:4317
+```
+
+An example configuration file is included in the `opentelemetry-osgi-karaf-feature` module under `src/main/resources/`.
+
+Three features are available:
+
+| Feature | Description |
+|---|---|
+| `opentelemetry-deps` | OTel SDK wrapped as OSGi bundles (reusable by other projects) |
+| `opentelemetry-osgi` | Integration bundles + OTel deps + SCR + default config |
+| `opentelemetry-osgi-demo` | Adds the demo client module |
+
+### Manual OSGi Deployment
 
 Deploy `opentelemetry-osgi-runtime` and `opentelemetry-osgi-client` bundles into your OSGi container.
 The runtime bundle will automatically register an `OpenTelemetry` service, and the client bundle's demo components will activate and produce telemetry.
+Note: you must ensure all OpenTelemetry SDK packages are available (e.g., via system classpath or individually wrapped bundles).
 
 ### Agent Extension Approach
 

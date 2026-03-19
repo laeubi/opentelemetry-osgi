@@ -57,6 +57,11 @@ opentelemetry-osgi/
 │   └── src/main/java/io/opentelemetry/osgi/log/
 │       ├── LogBridgeComponent.java          # Forwards LogEntry to OTel logs
 │       └── LogMetricsComponent.java         # Log entry counters as OTel metrics
+├── opentelemetry-osgi-karaf-feature/# Karaf feature descriptor for easy deployment
+│   ├── src/main/feature/
+│   │   └── feature.xml                      # Feature descriptor (3 features: deps, osgi, demo)
+│   └── src/main/resources/
+│       └── io.opentelemetry.osgi.runtime.cfg # Example configuration file
 ├── README.md
 ├── AGENTS.md                        # This file
 └── LICENSE                          # EPL-2.0
@@ -230,13 +235,42 @@ The Log module uses the OSGi Log Service from `org.osgi.service.log`:
 - `LogMetricsComponent` maintains counters by log level and a dedicated error counter by bundle name
 - Requires Felix Log Service bundle in the OSGi container (added as `org.apache.felix:org.apache.felix.log:1.3.0` in Docker)
 
+## Karaf Feature Module Notes
+
+The Karaf feature module (`opentelemetry-osgi-karaf-feature`) provides an Apache Karaf feature descriptor:
+
+- Uses `<packaging>feature</packaging>` with `karaf-maven-plugin` 4.4.7
+- Feature descriptor at `src/main/feature/feature.xml` — properties like `${project.version}` and `${opentelemetry.version}` are interpolated by the plugin
+- bnd-maven-plugin is skipped (not an OSGi bundle or JAR)
+- Three features defined in one feature repository:
+  - `opentelemetry-deps` — 14 OTel SDK JARs wrapped via `wrap:mvn:` protocol
+  - `opentelemetry-osgi` — integration bundles + depends on `scr` and `opentelemetry-deps`
+  - `opentelemetry-osgi-demo` — adds the demo client
+- All OTel JARs wrapped with `Import-Package=*;resolution:=optional&Export-Package=*` to avoid resolution failures from optional/transitive dependencies
+- Inline `<config>` element provides default configuration for the runtime PID `io.opentelemetry.osgi.runtime`
+- Example `.cfg` file in `src/main/resources/` for manual deployment to `${karaf.etc}/`
+- Depends on Karaf's built-in `scr` feature (provides Felix SCR / Declarative Services runtime)
+- Karaf also provides OSGi Log Service via Pax Logging (no extra bundles needed)
+
+### Karaf Deployment
+
+```bash
+feature:repo-add mvn:io.opentelemetry.osgi/opentelemetry-osgi-karaf-feature/0.1.0-SNAPSHOT/xml/features
+feature:install opentelemetry-osgi
+```
+
+### Adding New OTel Dependencies
+
+When adding new OTel JARs, add a `<bundle>wrap:mvn:...</bundle>` entry to the `opentelemetry-deps` feature in `feature.xml`.
+
 ## Common Pitfalls
 
 - **`package-info.java`**: The Javadoc comment must come before the `package` declaration — do not repeat the `package` statement
 - **OSGi scope**: OSGi dependencies must be `provided` scope in runtime/client modules (the framework provides them at runtime)
-- **bnd-maven-plugin + maven-jar-plugin**: Both are configured in the parent POM; the jar plugin reads the bnd-generated `MANIFEST.MF`. The agent module skips bnd and overrides the jar plugin config.
-- **Agent module is NOT an OSGi bundle**: It skips bnd-maven-plugin and uses default manifest. All deps are `provided` scope.
+- **bnd-maven-plugin + maven-jar-plugin**: Both are configured in the parent POM; the jar plugin reads the bnd-generated `MANIFEST.MF`. The agent and karaf-feature modules skip bnd.
+- **Non-bundle modules**: Agent (`<packaging>jar</packaging>` with bnd disabled) and karaf-feature (`<packaging>feature</packaging>`) are not OSGi bundles.
+- **OTel JARs are NOT OSGi bundles**: They lack `Bundle-SymbolicName` headers. In the Docker demo, they are on the system classpath and exported as system packages. In Karaf, they are wrapped via the `wrap:` protocol in the feature descriptor.
+- **Karaf wrap protocol**: Use `Import-Package=*;resolution:=optional&amp;Export-Package=*` to avoid resolution failures from transitive/optional deps.
 - **System packages in Docker**: When adding new OTel dependencies to the runtime, their packages must also be added to `docker/felix-config.properties` under `org.osgi.framework.system.packages.extra`
 - **OTLP exporter**: The runtime auto-detects OTLP mode from the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable — no config change needed
 - **Docker multi-stage build**: The `docker/Dockerfile` caches Maven dependencies separately from the source code for faster rebuilds
-- **OTel JARs are NOT OSGi bundles**: They lack `Bundle-SymbolicName` headers. In the Docker demo, they are on the system classpath and exported as system packages.

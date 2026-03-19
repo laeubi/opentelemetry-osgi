@@ -27,6 +27,7 @@
         <module>opentelemetry-osgi-scr</module>
         <module>opentelemetry-osgi-log</module>
         <module>opentelemetry-osgi-agent</module>
+        <module>opentelemetry-osgi-karaf-feature</module>
     </modules>
 
     <properties>
