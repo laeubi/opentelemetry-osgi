@@ -70,7 +70,7 @@ This separation allows libraries to instrument against the API without coupling 
 
 ## Project Scope
 
-This project brings OpenTelemetry to the OSGi ecosystem through three independent modules:
+This project brings OpenTelemetry to the OSGi ecosystem through five modules:
 
 ### `opentelemetry-osgi-runtime`
 
@@ -115,6 +115,23 @@ The extension provides:
 - **`OsgiEventListener`** — Listens to `BundleEvent` and `ServiceEvent` and creates spans for each lifecycle change (install, start, stop, register, unregister)
 - **`OsgiBundleInventoryLogger`** — Emits a complete bundle inventory as structured log records at startup
 
+### `opentelemetry-osgi-scr`
+
+Bridges the OSGi [Service Component Runtime (SCR) Introspection API](https://docs.osgi.org/specification/osgi.cmpn/8.0.0/service.component.html#service.component-introspection) into OpenTelemetry.
+Uses `ServiceComponentRuntime` to inspect every Declarative Services component and expose its state as telemetry:
+
+- **`ScrMetricsComponent`** — Registers async gauges for total component count, per-state distribution (active, satisfied, unsatisfied), active component count, and satisfied/unsatisfied service references
+- **`ScrInventoryComponent`** — Emits structured log records for every DS component configuration at startup, including properties, references, and state
+- **`ScrHealthCheckComponent`** — Runs a periodic (30s) trace that highlights non-active components with error details, unsatisfied references, and failure information
+
+### `opentelemetry-osgi-log`
+
+Bridges the OSGi [Log Service](https://docs.osgi.org/specification/osgi.core/8.0.0/service.log.html) into OpenTelemetry.
+Registers a `LogListener` with the `LogReaderService` to capture all log entries produced by bundles:
+
+- **`LogBridgeComponent`** — Forwards every `LogEntry` as an OpenTelemetry log record with mapped severity, plus attributes for bundle info, service reference, logger name, thread, source location, and exceptions
+- **`LogMetricsComponent`** — Counts log entries as OpenTelemetry metrics, grouped by log level and bundle (with a dedicated error counter)
+
 ## Prerequisites
 
 - Java 21 or later
@@ -126,7 +143,7 @@ The extension provides:
 mvn clean verify
 ```
 
-This builds all three modules.
+This builds all five modules.
 The agent extension module produces a shaded uber-JAR suitable for use as a Java Agent extension.
 
 ## Usage
@@ -207,6 +224,8 @@ Felix SCR (Service Component Runtime) provides Declarative Services support.
 Our bundles are auto-deployed into Felix:
 - **`opentelemetry-osgi-runtime`** activates and creates the SDK with OTLP export configured via environment variables
 - **`opentelemetry-osgi-client`** activates its demo components, including a periodic scheduler that generates traces, metrics, and logs every 5 seconds
+- **`opentelemetry-osgi-scr`** inspects all DS components and publishes metrics/logs/traces for their states and health
+- **`opentelemetry-osgi-log`** captures all OSGi Log Service entries and forwards them as OpenTelemetry log records and metrics
 
 ### Stop the Demo
 

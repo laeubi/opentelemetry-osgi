@@ -16,6 +16,8 @@ WORKDIR /workspace
 COPY pom.xml .
 COPY opentelemetry-osgi-runtime/pom.xml opentelemetry-osgi-runtime/
 COPY opentelemetry-osgi-client/pom.xml opentelemetry-osgi-client/
+COPY opentelemetry-osgi-scr/pom.xml opentelemetry-osgi-scr/
+COPY opentelemetry-osgi-log/pom.xml opentelemetry-osgi-log/
 COPY opentelemetry-osgi-agent/pom.xml opentelemetry-osgi-agent/
 RUN mvn dependency:go-offline -q -B 2>/dev/null || true
 
@@ -39,6 +41,9 @@ RUN mvn dependency:copy -q -B \
     -DoutputDirectory=/workspace/osgi-bundles && \
     mvn dependency:copy -q -B \
     -Dartifact=org.apache.felix:org.apache.felix.configadmin:1.9.22 \
+    -DoutputDirectory=/workspace/osgi-bundles && \
+    mvn dependency:copy -q -B \
+    -Dartifact=org.apache.felix:org.apache.felix.log:1.3.0 \
     -DoutputDirectory=/workspace/osgi-bundles
 
 # ---------------------------------------------------------------------------
@@ -60,6 +65,8 @@ COPY --from=build /workspace/osgi-bundles/ /app/bundle/
 # Our bundles to auto-deploy
 COPY --from=build /workspace/opentelemetry-osgi-runtime/target/opentelemetry-osgi-runtime-*.jar /app/bundle/
 COPY --from=build /workspace/opentelemetry-osgi-client/target/opentelemetry-osgi-client-*.jar /app/bundle/
+COPY --from=build /workspace/opentelemetry-osgi-scr/target/opentelemetry-osgi-scr-*.jar /app/bundle/
+COPY --from=build /workspace/opentelemetry-osgi-log/target/opentelemetry-osgi-log-*.jar /app/bundle/
 
 # Felix configuration
 COPY docker/felix-config.properties /app/conf/config.properties

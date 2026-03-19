@@ -23,6 +23,8 @@
     <modules>
         <module>opentelemetry-osgi-runtime</module>
         <module>opentelemetry-osgi-client</module>
+        <module>opentelemetry-osgi-scr</module>
+        <module>opentelemetry-osgi-log</module>
         <module>opentelemetry-osgi-agent</module>
     </modules>
 
@@ -34,6 +36,7 @@
         <osgi.service.component.annotations.version>1.5.1</osgi.service.component.annotations.version>
         <osgi.service.component.version>1.5.1</osgi.service.component.version>
         <osgi.annotation.bundle.version>2.0.0</osgi.annotation.bundle.version>
+        <osgi.service.log.version>1.5.0</osgi.service.log.version>
         <bnd.version>7.1.0</bnd.version>
     </properties>
 
@@ -65,6 +68,11 @@
                 <groupId>org.osgi</groupId>
                 <artifactId>org.osgi.annotation.bundle</artifactId>
                 <version>${osgi.annotation.bundle.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.osgi</groupId>
+                <artifactId>org.osgi.service.log</artifactId>
+                <version>${osgi.service.log.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

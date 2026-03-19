@@ -5,7 +5,7 @@ This file contains instructions and context for AI agents working on this codeba
 ## Project Overview
 
 This is a Maven multi-module project integrating OpenTelemetry with OSGi.
-It contains three modules that serve different integration approaches.
+It contains five modules that serve different integration approaches.
 
 ## Repository Structure
 
@@ -41,6 +41,15 @@ opentelemetry-osgi/
 │       ├── OsgiBundleInventoryLogger.java   # Bundle inventory logging
 │       ├── OsgiFrameworkAccess.java         # OSGi API access helper
 │       └── BundleInfo.java                  # Bundle state record
+├── opentelemetry-osgi-scr/          # SCR introspection → OpenTelemetry bridge
+│   └── src/main/java/io/opentelemetry/osgi/scr/
+│       ├── ScrMetricsComponent.java         # DS component state gauges
+│       ├── ScrInventoryComponent.java       # DS inventory as structured logs
+│       └── ScrHealthCheckComponent.java     # Periodic health trace for non-active components
+├── opentelemetry-osgi-log/          # OSGi Log Service → OpenTelemetry bridge
+│   └── src/main/java/io/opentelemetry/osgi/log/
+│       ├── LogBridgeComponent.java          # Forwards LogEntry to OTel logs
+│       └── LogMetricsComponent.java         # Log entry counters as OTel metrics
 ├── README.md
 ├── AGENTS.md                        # This file
 └── LICENSE                          # EPL-2.0
@@ -133,6 +142,7 @@ All versions are centralized in the parent POM properties:
 | `osgi.framework.version` | `1.10.0` | OSGi Framework API |
 | `osgi.service.component.annotations.version` | `1.5.1` | DS annotations |
 | `osgi.service.component.version` | `1.5.1` | DS runtime |
+| `osgi.service.log.version` | `1.5.0` | OSGi Log Service |
 | `osgi.annotation.bundle.version` | `2.0.0` | Bundle annotations |
 | `bnd.version` | `7.1.0` | bnd-maven-plugin |
 
@@ -147,6 +157,25 @@ The agent module is fundamentally different from the runtime/client modules:
 - It registers providers via SPI files in `META-INF/services/`
 - It accesses OSGi via `FrameworkUtil.getBundle()` and handles cases where OSGi is not available
 - All OSGi access is isolated in `OsgiFrameworkAccess` to avoid `ClassNotFoundException` at load time
+
+## SCR Module Notes
+
+The SCR module uses the OSGi SCR Introspection API from `org.osgi.service.component.runtime`:
+
+- References `ServiceComponentRuntime` to enumerate all DS component descriptions and configurations
+- Uses `ComponentConfigurationDTO` state constants: `UNSATISFIED_CONFIGURATION=1`, `UNSATISFIED_REFERENCE=2`, `SATISFIED=4`, `ACTIVE=8`, `FAILED_ACTIVATION=16`
+- The `configStateToString()` utility in `ScrMetricsComponent` maps state integers to human-readable names — reused by other SCR components
+- Async gauges (via `ObservableLongGauge`) query component state on every metric collection cycle
+
+## Log Module Notes
+
+The Log module uses the OSGi Log Service from `org.osgi.service.log`:
+
+- References `LogReaderService` and registers as a `LogListener` to capture real-time log entries
+- Maps `LogLevel` (AUDIT, ERROR, WARN, INFO, DEBUG, TRACE) to OpenTelemetry `Severity`
+- Enriches OTel log records with: bundle symbolic name/id/version, logger name, sequence number, thread info, service reference, source code location, exception details
+- `LogMetricsComponent` maintains counters by log level and a dedicated error counter by bundle name
+- Requires Felix Log Service bundle in the OSGi container (added as `org.apache.felix:org.apache.felix.log:1.3.0` in Docker)
 
 ## Common Pitfalls
 
