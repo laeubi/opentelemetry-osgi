@@ -15,15 +15,23 @@ import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.exporter.logging.LoggingMetricExporter;
 import io.opentelemetry.exporter.logging.LoggingSpanExporter;
+import io.opentelemetry.exporter.logging.SystemOutLogRecordExporter;
+import io.opentelemetry.exporter.otlp.logs.OtlpGrpcLogRecordExporter;
+import io.opentelemetry.exporter.otlp.metrics.OtlpGrpcMetricExporter;
+import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.logs.SdkLoggerProvider;
+import io.opentelemetry.sdk.logs.export.BatchLogRecordProcessor;
+import io.opentelemetry.sdk.logs.export.LogRecordExporter;
 import io.opentelemetry.sdk.logs.export.SimpleLogRecordProcessor;
 import io.opentelemetry.sdk.metrics.SdkMeterProvider;
+import io.opentelemetry.sdk.metrics.export.MetricExporter;
 import io.opentelemetry.sdk.metrics.export.PeriodicMetricReader;
 import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
-import io.opentelemetry.exporter.logging.SystemOutLogRecordExporter;
+import io.opentelemetry.sdk.trace.export.SpanExporter;
 
 /**
  * OSGi Declarative Services component that creates and publishes an
@@ -31,6 +39,12 @@ import io.opentelemetry.exporter.logging.SystemOutLogRecordExporter;
  * <p>
  * The service is configurable via OSGi ConfigAdmin. When configuration changes,
  * the SDK is rebuilt and the service is updated.
+ * <p>
+ * Supported exporter types:
+ * <ul>
+ *   <li>{@code logging} (default) — exports telemetry to stdout via java.util.logging</li>
+ *   <li>{@code otlp} — exports telemetry via OTLP/gRPC to a collector endpoint</li>
+ * </ul>
  */
 @Component(
     service = OpenTelemetry.class,
@@ -47,7 +61,8 @@ public class OpenTelemetryService implements OpenTelemetry {
     public void activate(BundleContext context, OpenTelemetryConfiguration config) {
         LOG.info("Activating OpenTelemetry SDK service");
         this.sdk = buildSdk(context, config);
-        LOG.info("OpenTelemetry SDK service activated with service.name=" + config.serviceName());
+        LOG.info("OpenTelemetry SDK service activated with service.name=" + config.serviceName()
+            + ", exporter=" + resolveExporterType(config));
     }
 
     @Modified
@@ -72,21 +87,11 @@ public class OpenTelemetryService implements OpenTelemetry {
 
     private OpenTelemetrySdk buildSdk(BundleContext context, OpenTelemetryConfiguration config) {
         Resource resource = buildResource(context, config);
+        String exporterType = resolveExporterType(config);
 
-        SdkTracerProvider tracerProvider = SdkTracerProvider.builder()
-            .setResource(resource)
-            .addSpanProcessor(SimpleSpanProcessor.create(LoggingSpanExporter.create()))
-            .build();
-
-        SdkMeterProvider meterProvider = SdkMeterProvider.builder()
-            .setResource(resource)
-            .registerMetricReader(PeriodicMetricReader.create(LoggingMetricExporter.create()))
-            .build();
-
-        SdkLoggerProvider loggerProvider = SdkLoggerProvider.builder()
-            .setResource(resource)
-            .addLogRecordProcessor(SimpleLogRecordProcessor.create(SystemOutLogRecordExporter.create()))
-            .build();
+        SdkTracerProvider tracerProvider = buildTracerProvider(resource, exporterType, config);
+        SdkMeterProvider meterProvider = buildMeterProvider(resource, exporterType, config);
+        SdkLoggerProvider loggerProvider = buildLoggerProvider(resource, exporterType, config);
 
         return OpenTelemetrySdk.builder()
             .setTracerProvider(tracerProvider)
@@ -95,9 +100,78 @@ public class OpenTelemetryService implements OpenTelemetry {
             .build();
     }
 
+    private SdkTracerProvider buildTracerProvider(Resource resource, String exporterType,
+            OpenTelemetryConfiguration config) {
+        SpanExporter spanExporter;
+        if ("otlp".equals(exporterType)) {
+            spanExporter = OtlpGrpcSpanExporter.builder()
+                .setEndpoint(config.otlpEndpoint())
+                .build();
+            return SdkTracerProvider.builder()
+                .setResource(resource)
+                .addSpanProcessor(BatchSpanProcessor.builder(spanExporter).build())
+                .build();
+        }
+        spanExporter = LoggingSpanExporter.create();
+        return SdkTracerProvider.builder()
+            .setResource(resource)
+            .addSpanProcessor(SimpleSpanProcessor.create(spanExporter))
+            .build();
+    }
+
+    private SdkMeterProvider buildMeterProvider(Resource resource, String exporterType,
+            OpenTelemetryConfiguration config) {
+        MetricExporter metricExporter;
+        if ("otlp".equals(exporterType)) {
+            metricExporter = OtlpGrpcMetricExporter.builder()
+                .setEndpoint(config.otlpEndpoint())
+                .build();
+        } else {
+            metricExporter = LoggingMetricExporter.create();
+        }
+        return SdkMeterProvider.builder()
+            .setResource(resource)
+            .registerMetricReader(PeriodicMetricReader.create(metricExporter))
+            .build();
+    }
+
+    private SdkLoggerProvider buildLoggerProvider(Resource resource, String exporterType,
+            OpenTelemetryConfiguration config) {
+        LogRecordExporter logExporter;
+        if ("otlp".equals(exporterType)) {
+            logExporter = OtlpGrpcLogRecordExporter.builder()
+                .setEndpoint(config.otlpEndpoint())
+                .build();
+            return SdkLoggerProvider.builder()
+                .setResource(resource)
+                .addLogRecordProcessor(BatchLogRecordProcessor.builder(logExporter).build())
+                .build();
+        }
+        logExporter = SystemOutLogRecordExporter.create();
+        return SdkLoggerProvider.builder()
+            .setResource(resource)
+            .addLogRecordProcessor(SimpleLogRecordProcessor.create(logExporter))
+            .build();
+    }
+
+    /**
+     * Resolves the exporter type from config or environment.
+     * The {@code OTEL_EXPORTER_OTLP_ENDPOINT} env var forces OTLP mode.
+     */
+    private String resolveExporterType(OpenTelemetryConfiguration config) {
+        String envEndpoint = System.getenv("OTEL_EXPORTER_OTLP_ENDPOINT");
+        if (envEndpoint != null && !envEndpoint.isEmpty()) {
+            return "otlp";
+        }
+        return config.exporterType();
+    }
+
     private Resource buildResource(BundleContext context, OpenTelemetryConfiguration config) {
+        String envServiceName = System.getenv("OTEL_SERVICE_NAME");
+
         AttributesBuilder attrs = Attributes.builder()
-            .put(AttributeKey.stringKey("service.name"), config.serviceName())
+            .put(AttributeKey.stringKey("service.name"),
+                envServiceName != null ? envServiceName : config.serviceName())
             .put(AttributeKey.stringKey("service.version"), config.serviceVersion());
 
         if (!config.serviceNamespace().isEmpty()) {
@@ -105,12 +179,18 @@ public class OpenTelemetryService implements OpenTelemetry {
         }
 
         // Add OSGi framework information as resource attributes
-        attrs.put(AttributeKey.stringKey("osgi.framework.vendor"),
-            context.getProperty("org.osgi.framework.vendor"));
-        attrs.put(AttributeKey.stringKey("osgi.framework.version"),
-            context.getProperty("org.osgi.framework.version"));
-        attrs.put(AttributeKey.stringKey("osgi.framework.uuid"),
-            context.getProperty("org.osgi.framework.uuid"));
+        String vendor = context.getProperty("org.osgi.framework.vendor");
+        if (vendor != null) {
+            attrs.put(AttributeKey.stringKey("osgi.framework.vendor"), vendor);
+        }
+        String version = context.getProperty("org.osgi.framework.version");
+        if (version != null) {
+            attrs.put(AttributeKey.stringKey("osgi.framework.version"), version);
+        }
+        String uuid = context.getProperty("org.osgi.framework.uuid");
+        if (uuid != null) {
+            attrs.put(AttributeKey.stringKey("osgi.framework.uuid"), uuid);
+        }
 
         // Parse additional resource attributes (format: "key=value")
         for (String attr : config.additionalResourceAttributes()) {

@@ -148,6 +148,81 @@ java -javaagent:path/to/opentelemetry-javaagent.jar \
 
 The agent extension will automatically detect the OSGi framework and begin instrumenting it.
 
+## Docker Demo (Quick Start)
+
+The easiest way to see the integration in action is the Docker Compose demo.
+It spins up the full Grafana observability stack with a single command:
+
+```
+OSGi App (Felix + our bundles)
+    │ OTLP/gRPC
+    ▼
+OTel Collector (Gateway)
+    │
+    ├──→ Tempo     (Traces)
+    ├──→ Prometheus (Metrics)
+    └──→ Loki      (Logs)
+          │
+          ▼
+       Grafana (UI + Explore + Dashboards)
+```
+
+### Prerequisites
+
+- Docker and Docker Compose installed
+- Java 21 and Maven 3.9+ (for local builds)
+
+### Start the Demo
+
+```bash
+# Build and start everything
+docker compose up --build -d
+
+# Watch the OSGi application logs
+docker compose logs -f osgi-app
+```
+
+### Explore in Grafana
+
+Open [http://localhost:3000](http://localhost:3000) (no login required — anonymous admin is enabled).
+
+**Traces** — Go to *Explore → Tempo* and search for traces.
+You will see spans for simulated OSGi operations like `osgi.bundle.resolve`, `osgi.service.lookup`, and `osgi.config.update`, each with child spans showing validation and execution phases.
+
+**Metrics** — Go to *Explore → Prometheus* and query:
+- `osgi_demo_operations_total` — Count of simulated OSGi operations
+- `osgi_demo_operation_duration_milliseconds` — Duration histogram
+- `osgi_client_requests_total` — Request counter from the metrics demo
+- `osgi_client_jvm_memory_used_bytes` — JVM heap memory gauge
+
+**Logs** — Go to *Explore → Loki* and browse log streams.
+You will see structured log records for each OSGi operation, bundle discovery events, and warning/error messages — all with attributes you can filter on.
+
+### Architecture
+
+The demo uses an embedded [Apache Felix](https://felix.apache.org/) OSGi framework.
+OpenTelemetry SDK and exporter JARs are on the system classpath, and their packages are exported to the OSGi framework via `org.osgi.framework.system.packages.extra`.
+Felix SCR (Service Component Runtime) provides Declarative Services support.
+
+Our bundles are auto-deployed into Felix:
+- **`opentelemetry-osgi-runtime`** activates and creates the SDK with OTLP export configured via environment variables
+- **`opentelemetry-osgi-client`** activates its demo components, including a periodic scheduler that generates traces, metrics, and logs every 5 seconds
+
+### Stop the Demo
+
+```bash
+docker compose down -v
+```
+
+### Exposed Ports
+
+| Port | Service | URL |
+|---|---|---|
+| 3000 | Grafana | [http://localhost:3000](http://localhost:3000) |
+| 9090 | Prometheus | [http://localhost:9090](http://localhost:9090) |
+| 4317 | OTel Collector (gRPC) | — |
+| 4318 | OTel Collector (HTTP) | — |
+
 ## Technology Stack
 
 | Technology | Version | Purpose |
@@ -157,6 +232,12 @@ The agent extension will automatically detect the OSGi framework and begin instr
 | OSGi Framework | R8 (1.10.0) | Module system |
 | OSGi Declarative Services | 1.5.1 | Component model |
 | bnd-maven-plugin | 7.1.0 | OSGi metadata generation |
+| Apache Felix | 7.0.5 | OSGi runtime (Docker demo) |
+| Grafana | 11.5.2 | Observability UI |
+| Grafana Tempo | 2.7.2 | Distributed tracing backend |
+| Prometheus | 3.2.1 | Metrics backend |
+| Grafana Loki | 3.4.2 | Log aggregation backend |
+| OTel Collector | 0.120.0 | Telemetry gateway |
 
 ## License
 

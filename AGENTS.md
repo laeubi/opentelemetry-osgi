@@ -12,6 +12,15 @@ It contains three modules that serve different integration approaches.
 ```
 opentelemetry-osgi/
 ├── pom.xml                          # Parent POM with dependency management
+├── docker-compose.yml               # Full Grafana observability stack
+├── docker/
+│   ├── Dockerfile                   # Multi-stage build (Maven → Felix runtime)
+│   ├── felix-config.properties      # Felix OSGi config with system package exports
+│   ├── otel-collector-config.yaml   # OTel Collector pipeline config
+│   ├── tempo.yaml                   # Grafana Tempo config
+│   ├── prometheus.yml               # Prometheus config
+│   ├── loki.yaml                    # Grafana Loki config
+│   └── grafana/provisioning/        # Grafana auto-provisioned datasources
 ├── opentelemetry-osgi-runtime/      # OSGi service providing OpenTelemetry SDK
 │   └── src/main/java/io/opentelemetry/osgi/runtime/
 │       ├── OpenTelemetryService.java        # DS component publishing OpenTelemetry
@@ -21,7 +30,8 @@ opentelemetry-osgi/
 │       ├── TracingDemoComponent.java              # Tracing demos
 │       ├── MetricsDemoComponent.java              # Metrics demos
 │       ├── LogBridgeDemoComponent.java            # Log bridge demos
-│       └── ContextPropagationDemoComponent.java   # Context propagation demos
+│       ├── ContextPropagationDemoComponent.java   # Context propagation demos
+│       └── DemoSchedulerComponent.java            # Periodic telemetry generator
 ├── opentelemetry-osgi-agent/        # Java Agent extension for OSGi instrumentation
 │   └── src/main/java/io/opentelemetry/osgi/agent/
 │       ├── OsgiAgentExtension.java          # Main extension entry point
@@ -49,6 +59,40 @@ mvn clean verify -pl opentelemetry-osgi-runtime
 mvn clean verify -X
 ```
 
+## Docker Demo Commands
+
+```bash
+# Build and start the full observability stack
+docker compose up --build -d
+
+# View OSGi application logs
+docker compose logs -f osgi-app
+
+# View OTel Collector logs
+docker compose logs -f otel-collector
+
+# Stop and clean up (including volumes)
+docker compose down -v
+
+# Rebuild only the OSGi app after code changes
+docker compose build osgi-app && docker compose up -d osgi-app
+```
+
+## Docker Architecture
+
+The Docker demo uses an embedded Apache Felix 7.0.5 OSGi framework (not Karaf).
+OpenTelemetry JARs are placed on the system classpath and their packages are exported to OSGi via `org.osgi.framework.system.packages.extra` in `docker/felix-config.properties`.
+
+**Key environment variables** (set in `docker-compose.yml`):
+- `OTEL_EXPORTER_OTLP_ENDPOINT` — Triggers OTLP export mode in the runtime (default: `http://otel-collector:4317`)
+- `OTEL_SERVICE_NAME` — Overrides the `service.name` resource attribute
+
+**Data flow**: OSGi App → OTel Collector (OTLP/gRPC) → Tempo + Prometheus + Loki → Grafana
+
+When modifying the OTel Collector pipeline, edit `docker/otel-collector-config.yaml`.
+When adding new system packages for OSGi, edit `docker/felix-config.properties`.
+Grafana datasources are auto-provisioned from `docker/grafana/provisioning/datasources/datasources.yaml`.
+
 ## Code Conventions
 
 ### Java
@@ -70,6 +114,8 @@ mvn clean verify -X
 ### OpenTelemetry
 
 - **API vs SDK**: Client bundles depend only on `opentelemetry-api`; only the runtime bundle depends on `opentelemetry-sdk`
+- **OTLP export**: The runtime supports both `logging` and `otlp` exporter types. OTLP is auto-selected when `OTEL_EXPORTER_OTLP_ENDPOINT` env var is set.
+- **Sender**: Uses `opentelemetry-exporter-sender-jdk` (Java's built-in HttpClient) — no external HTTP library needed
 - **Instrumentation scopes**: Use fully qualified package names as instrumentation scope names
 - **BOM**: Dependency versions managed via `opentelemetry-bom` import in parent POM
 
@@ -108,3 +154,7 @@ The agent module is fundamentally different from the runtime/client modules:
 - **OSGi scope**: OSGi dependencies must be `provided` scope in runtime/client modules (the framework provides them at runtime)
 - **bnd-maven-plugin + maven-jar-plugin**: Both are configured in the parent POM; the jar plugin reads the bnd-generated `MANIFEST.MF`
 - **Shading in agent module**: The shade plugin runs after the regular jar plugin and replaces the artifact
+- **System packages in Docker**: When adding new OTel dependencies to the runtime, their packages must also be added to `docker/felix-config.properties` under `org.osgi.framework.system.packages.extra`
+- **OTLP exporter**: The runtime auto-detects OTLP mode from the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable — no config change needed
+- **Docker multi-stage build**: The `docker/Dockerfile` caches Maven dependencies separately from the source code for faster rebuilds
+- **OTel JARs are NOT OSGi bundles**: They lack `Bundle-SymbolicName` headers. In the Docker demo, they are on the system classpath and exported as system packages.
