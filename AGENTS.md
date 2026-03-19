@@ -40,15 +40,14 @@ opentelemetry-osgi/
 │       ├── LogBridgeDemoComponent.java            # Log bridge demos
 │       ├── ContextPropagationDemoComponent.java   # Context propagation demos
 │       └── DemoSchedulerComponent.java            # Periodic telemetry generator
-├── opentelemetry-osgi-agent/        # Java Agent extension (NON-FUNCTIONAL — see Core module)
+├── opentelemetry-osgi-agent/        # Java Agent extension (ByteBuddy instrumentation)
 │   └── src/main/java/io/opentelemetry/osgi/agent/
-│       ├── OsgiAgentExtension.java          # Main extension entry point
-│       ├── OsgiResourceProvider.java        # Resource attributes from OSGi
-│       ├── OsgiMetricsProvider.java         # Framework metrics
-│       ├── OsgiEventListener.java           # Bundle/service event tracing
-│       ├── OsgiBundleInventoryLogger.java   # Bundle inventory logging
-│       ├── OsgiFrameworkAccess.java         # OSGi API access helper
-│       └── BundleInfo.java                  # Bundle state record
+│       ├── OsgiInstrumentationModule.java     # SPI entry point, classloader matcher
+│       ├── FrameworkInstrumentation.java       # Intercepts Framework.init() for context capture
+│       ├── BundleLifecycleInstrumentation.java # Traces Bundle.start/stop/update/uninstall
+│       ├── BundleActivatorInstrumentation.java # Traces BundleActivator.start/stop
+│       ├── BundleContextInstrumentation.java   # Traces registerService/installBundle
+│       └── OsgiSingletons.java                # Static Tracer/Meter/Logger + metrics registration
 ├── opentelemetry-osgi-scr/          # SCR introspection → OpenTelemetry bridge
 │   └── src/main/java/io/opentelemetry/osgi/scr/
 │       ├── ScrMetricsComponent.java         # DS component state gauges
@@ -158,19 +157,51 @@ When updating OpenTelemetry version, update the `opentelemetry.version` property
 
 ## Agent Module Notes
 
-> **Status: Non-functional.** The agent approach does not work as intended because the OTel Java Agent loads extensions via SPI (ServiceLoader), not OSGi. The agent extension classes cannot access the OSGi framework since they live outside of it. The functionality has been migrated to `opentelemetry-osgi-core`. The agent module is retained for future rework or removal.
+The agent module uses the OTel Java Agent Extension API with ByteBuddy bytecode instrumentation.
+It is **not** an OSGi bundle — it is a plain JAR loaded via `-Dotel.javaagent.extensions=`.
 
-The agent module is fundamentally different from the runtime/client modules:
+### Architecture
 
-- It is **not** an OSGi bundle — it is a Java Agent extension JAR
-- It uses `maven-shade-plugin` to create an uber-JAR with all dependencies
-- It registers providers via SPI files in `META-INF/services/`
-- It accesses OSGi via `FrameworkUtil.getBundle()` and handles cases where OSGi is not available
-- All OSGi access is isolated in `OsgiFrameworkAccess` to avoid `ClassNotFoundException` at load time
+- **`OsgiInstrumentationModule`** extends `InstrumentationModule` and registers via SPI (`META-INF/services/io.opentelemetry.javaagent.extension.instrumentation.InstrumentationModule`)
+- `classLoaderMatcher()` checks for `org.osgi.framework.launch.Framework` — zero overhead for non-OSGi apps
+- Four `TypeInstrumentation` implementations instrument standard OSGi interfaces (vendor-agnostic)
+
+### Key Design Decisions
+
+- **Instruments interfaces, not vendor classes**: Uses `implementsInterface(named("org.osgi.framework.Bundle"))` etc. to work with Felix, Equinox, or any OSGi framework
+- **`Framework.init()` as entry point**: Per the OSGi spec, `getBundleContext()` returns a valid system BundleContext after init — this is where metrics are registered
+- **`GlobalOpenTelemetry.get()`**: The javaagent places the OTel API on the bootstrap classloader; safe to call from any classloader
+- **Helper class injection**: `OsgiSingletons` is automatically injected by the agent into the target classloader (referenced from advice code)
+- **`@Advice.Origin("#m")`**: ByteBuddy provides the method name at instrumentation time, reducing duplicate advice classes
+- **`Span.current()` in exit advice**: The scope from enter is still active, so `Span.current()` returns our span
+- **All dependencies are `provided` scope**: The javaagent supplies OTel API, SDK, and ByteBuddy at runtime
+
+### Dependencies
+
+| Dependency | Scope | Purpose |
+|---|---|---|
+| `opentelemetry-javaagent-extension-api` | provided | InstrumentationModule, TypeInstrumentation, AgentElementMatchers |
+| `byte-buddy` | provided | @Advice annotations, ElementMatchers |
+| `opentelemetry-api` | provided | GlobalOpenTelemetry, Tracer, Meter, Logger |
+| `org.osgi.framework` | provided | OSGi types referenced in advice code |
+
+### Build Differences from OSGi Modules
+
+- bnd-maven-plugin is **skipped** (not an OSGi bundle)
+- maven-jar-plugin uses default manifest (not bnd-generated)
+- No shade plugin (no runtime dependencies to bundle)
+
+### Usage
+
+```bash
+java -javaagent:opentelemetry-javaagent.jar \
+     -Dotel.javaagent.extensions=opentelemetry-osgi-agent-0.1.0-SNAPSHOT.jar \
+     -jar your-osgi-application.jar
+```
 
 ## Core Module Notes
 
-The core module (`opentelemetry-osgi-core`) replaces the agent module's functionality as proper DS components:
+The core module (`opentelemetry-osgi-core`) provides OSGi framework telemetry as proper DS components (complementary to the agent module which provides the same via bytecode instrumentation):
 
 - Uses `@Reference OpenTelemetry` and `BundleContext` (injected via `@Activate`) — no `FrameworkUtil.getBundle()` workaround
 - Registers as `BundleListener` and `ServiceListener` in `@Activate`, unregisters in `@Deactivate`
@@ -203,8 +234,8 @@ The Log module uses the OSGi Log Service from `org.osgi.service.log`:
 
 - **`package-info.java`**: The Javadoc comment must come before the `package` declaration — do not repeat the `package` statement
 - **OSGi scope**: OSGi dependencies must be `provided` scope in runtime/client modules (the framework provides them at runtime)
-- **bnd-maven-plugin + maven-jar-plugin**: Both are configured in the parent POM; the jar plugin reads the bnd-generated `MANIFEST.MF`
-- **Shading in agent module**: The shade plugin runs after the regular jar plugin and replaces the artifact
+- **bnd-maven-plugin + maven-jar-plugin**: Both are configured in the parent POM; the jar plugin reads the bnd-generated `MANIFEST.MF`. The agent module skips bnd and overrides the jar plugin config.
+- **Agent module is NOT an OSGi bundle**: It skips bnd-maven-plugin and uses default manifest. All deps are `provided` scope.
 - **System packages in Docker**: When adding new OTel dependencies to the runtime, their packages must also be added to `docker/felix-config.properties` under `org.osgi.framework.system.packages.extra`
 - **OTLP exporter**: The runtime auto-detects OTLP mode from the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable — no config change needed
 - **Docker multi-stage build**: The `docker/Dockerfile` caches Maven dependencies separately from the source code for faster rebuilds

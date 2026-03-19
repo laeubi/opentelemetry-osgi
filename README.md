@@ -115,19 +115,17 @@ A demo bundle that consumes the `OpenTelemetry` service via DS and demonstrates 
 
 ### `opentelemetry-osgi-agent`
 
-> **Note:** The agent module is currently non-functional as an OSGi bridge because the OTel Java Agent uses SPI, not OSGi, to load extensions.
-> It will be reworked or removed in a future iteration.
-> The functionality it was intended to provide is now available in `opentelemetry-osgi-core`.
+An OpenTelemetry Java Agent extension that uses ByteBuddy bytecode instrumentation to intercept OSGi framework operations.
+This module is independent from the runtime/client approach — it works with the [OpenTelemetry Java Agent](https://opentelemetry.io/docs/zero-code/java/agent/) and extends its auto-instrumentation capabilities via the [Agent Extension API](https://opentelemetry.io/docs/zero-code/java/agent/api/).
 
-An OpenTelemetry Java Agent extension that was intended to make OSGi framework internals visible as telemetry.
-This module is independent from the runtime/client approach — it works with the [OpenTelemetry Java Agent](https://opentelemetry.io/docs/zero-code/java/agent/) and extends its auto-instrumentation capabilities as described in the [Agent Extension API](https://opentelemetry.io/docs/zero-code/java/agent/api/).
+The extension intercepts standard OSGi interfaces (not vendor classes), making it vendor-agnostic (Felix, Equinox, Knopflerfish, etc.):
 
-The extension provides:
-
-- **`OsgiResourceProvider`** — Detects OSGi presence and adds framework metadata (vendor, version, bundle list) as resource attributes to all telemetry
-- **`OsgiMetricsProvider`** — Registers async gauge metrics for bundle count, active bundles, service count, and per-state bundle distribution
-- **`OsgiEventListener`** — Listens to `BundleEvent` and `ServiceEvent` and creates spans for each lifecycle change (install, start, stop, register, unregister)
-- **`OsgiBundleInventoryLogger`** — Emits a complete bundle inventory as structured log records at startup
+- **`OsgiInstrumentationModule`** — SPI entry point; only activates when `org.osgi.framework.launch.Framework` is on the classloader
+- **`FrameworkInstrumentation`** — Intercepts `Framework.init()` to capture the system BundleContext and register framework-level gauges (bundle count, active bundles, service count, resolved bundles)
+- **`BundleLifecycleInstrumentation`** — Traces `Bundle.start()`, `stop()`, `update()`, `uninstall()` as spans with bundle attributes; logs full bundle inventory after system bundle start
+- **`BundleActivatorInstrumentation`** — Traces `BundleActivator.start()` and `stop()` as child spans within the bundle lifecycle, showing activator execution time
+- **`BundleContextInstrumentation`** — Traces `BundleContext.registerService()` and `installBundle()` with service/location attributes
+- **`OsgiSingletons`** — Static helper providing `Tracer`/`Meter`/`Logger` via `GlobalOpenTelemetry.get()` and managing framework context storage
 
 ### `opentelemetry-osgi-scr`
 
@@ -157,8 +155,8 @@ Registers a `LogListener` with the `LogReaderService` to capture all log entries
 mvn clean verify
 ```
 
-This builds all six modules.
-The agent extension module produces a shaded uber-JAR suitable for use as a Java Agent extension.
+This builds all seven modules.
+The agent extension module produces a plain JAR (no shading needed — all dependencies are provided by the javaagent at runtime).
 
 ## Usage
 

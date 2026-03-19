@@ -12,36 +12,48 @@
 
     <artifactId>opentelemetry-osgi-agent</artifactId>
     <name>OpenTelemetry OSGi Agent Extension</name>
-    <description>OpenTelemetry Java Agent extension for OSGi framework instrumentation</description>
+    <description>
+        OpenTelemetry Java Agent extension that instruments OSGi framework internals
+        using ByteBuddy bytecode instrumentation. Intercepts Framework.init(), Bundle
+        lifecycle, BundleActivator, and BundleContext calls to produce traces, metrics,
+        and logs. Vendor-agnostic: works with Felix, Equinox, or any OSGi R4+ framework.
+    </description>
+
+    <properties>
+        <otel.javaagent.extension.version>2.15.0-alpha</otel.javaagent.extension.version>
+        <bytebuddy.version>1.15.3</bytebuddy.version>
+    </properties>
 
     <dependencies>
-        <!-- OpenTelemetry API and SDK SPI for agent extensions -->
+        <!--
+            All dependencies are provided scope: the OTel javaagent supplies them at runtime.
+            This module produces a plain extension JAR loaded via -Dotel.javaagent.extensions=
+        -->
+
+        <!-- OTel Java Agent Extension API (InstrumentationModule, TypeInstrumentation, matchers) -->
+        <dependency>
+            <groupId>io.opentelemetry.javaagent</groupId>
+            <artifactId>opentelemetry-javaagent-extension-api</artifactId>
+            <version>${otel.javaagent.extension.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- ByteBuddy for @Advice annotations -->
+        <dependency>
+            <groupId>net.bytebuddy</groupId>
+            <artifactId>byte-buddy</artifactId>
+            <version>${bytebuddy.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- OpenTelemetry API (GlobalOpenTelemetry, Tracer, Meter, Logger) -->
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-sdk-extension-autoconfigure-spi</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-sdk-common</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-sdk-trace</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-sdk-metrics</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-sdk-logs</artifactId>
+            <scope>provided</scope>
         </dependency>
 
-        <!-- OSGi Framework API -->
+        <!-- OSGi Framework API (compile-time references in advice code) -->
         <dependency>
             <groupId>org.osgi</groupId>
             <artifactId>org.osgi.framework</artifactId>
@@ -51,23 +63,28 @@
 
     <build>
         <plugins>
+            <!-- This is NOT an OSGi bundle — skip bnd processing -->
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.6.0</version>
+                <groupId>biz.aQute.bnd</groupId>
+                <artifactId>bnd-maven-plugin</artifactId>
                 <executions>
                     <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <configuration>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-                            </transformers>
-                        </configuration>
+                        <id>generate-osgi-metadata</id>
+                        <phase>none</phase>
                     </execution>
                 </executions>
+            </plugin>
+            <!-- Use default manifest instead of bnd-generated one -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive combine.self="override">
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                        </manifest>
+                    </archive>
+                </configuration>
             </plugin>
         </plugins>
     </build>
