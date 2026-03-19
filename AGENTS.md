@@ -5,7 +5,7 @@ This file contains instructions and context for AI agents working on this codeba
 ## Project Overview
 
 This is a Maven multi-module project integrating OpenTelemetry with OSGi.
-It contains five modules that serve different integration approaches.
+It contains six modules that serve different integration approaches.
 
 ## Repository Structure
 
@@ -25,6 +25,13 @@ opentelemetry-osgi/
 │   └── src/main/java/io/opentelemetry/osgi/runtime/
 │       ├── OpenTelemetryService.java        # DS component publishing OpenTelemetry
 │       └── OpenTelemetryConfiguration.java  # ConfigAdmin configuration annotation
+├── opentelemetry-osgi-core/         # Core framework bridge (bundles, services, events)
+│   └── src/main/java/io/opentelemetry/osgi/core/
+│       ├── FrameworkMetricsComponent.java    # Bundle/service count gauges
+│       ├── FrameworkEventComponent.java      # Bundle/service event tracing
+│       ├── BundleInventoryComponent.java     # Bundle inventory as structured logs
+│       ├── BundleStateUtil.java              # Bundle state name utility
+│       └── BundleInfo.java                   # Bundle state record
 ├── opentelemetry-osgi-client/       # Demo bundle consuming OpenTelemetry service
 │   └── src/main/java/io/opentelemetry/osgi/client/
 │       ├── TracingDemoComponent.java              # Tracing demos
@@ -32,7 +39,7 @@ opentelemetry-osgi/
 │       ├── LogBridgeDemoComponent.java            # Log bridge demos
 │       ├── ContextPropagationDemoComponent.java   # Context propagation demos
 │       └── DemoSchedulerComponent.java            # Periodic telemetry generator
-├── opentelemetry-osgi-agent/        # Java Agent extension for OSGi instrumentation
+├── opentelemetry-osgi-agent/        # Java Agent extension (NON-FUNCTIONAL — see Core module)
 │   └── src/main/java/io/opentelemetry/osgi/agent/
 │       ├── OsgiAgentExtension.java          # Main extension entry point
 │       ├── OsgiResourceProvider.java        # Resource attributes from OSGi
@@ -150,6 +157,8 @@ When updating OpenTelemetry version, update the `opentelemetry.version` property
 
 ## Agent Module Notes
 
+> **Status: Non-functional.** The agent approach does not work as intended because the OTel Java Agent loads extensions via SPI (ServiceLoader), not OSGi. The agent extension classes cannot access the OSGi framework since they live outside of it. The functionality has been migrated to `opentelemetry-osgi-core`. The agent module is retained for future rework or removal.
+
 The agent module is fundamentally different from the runtime/client modules:
 
 - It is **not** an OSGi bundle — it is a Java Agent extension JAR
@@ -157,6 +166,16 @@ The agent module is fundamentally different from the runtime/client modules:
 - It registers providers via SPI files in `META-INF/services/`
 - It accesses OSGi via `FrameworkUtil.getBundle()` and handles cases where OSGi is not available
 - All OSGi access is isolated in `OsgiFrameworkAccess` to avoid `ClassNotFoundException` at load time
+
+## Core Module Notes
+
+The core module (`opentelemetry-osgi-core`) replaces the agent module's functionality as proper DS components:
+
+- Uses `@Reference OpenTelemetry` and `BundleContext` (injected via `@Activate`) — no `FrameworkUtil.getBundle()` workaround
+- Registers as `BundleListener` and `ServiceListener` in `@Activate`, unregisters in `@Deactivate`
+- Async gauges use `ObservableLongGauge` with proper cleanup via `close()` on deactivate
+- `BundleStateUtil` provides the `bundleStateToString()` utility shared across components
+- `BundleInfo` record captures immutable bundle state snapshots
 
 ## SCR Module Notes
 

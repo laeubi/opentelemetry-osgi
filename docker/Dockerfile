@@ -15,6 +15,7 @@ WORKDIR /workspace
 # Cache dependencies first (improves rebuild speed)
 COPY pom.xml .
 COPY opentelemetry-osgi-runtime/pom.xml opentelemetry-osgi-runtime/
+COPY opentelemetry-osgi-core/pom.xml opentelemetry-osgi-core/
 COPY opentelemetry-osgi-client/pom.xml opentelemetry-osgi-client/
 COPY opentelemetry-osgi-scr/pom.xml opentelemetry-osgi-scr/
 COPY opentelemetry-osgi-log/pom.xml opentelemetry-osgi-log/
@@ -64,6 +65,7 @@ COPY --from=build /workspace/osgi-bundles/ /app/bundle/
 
 # Our bundles to auto-deploy
 COPY --from=build /workspace/opentelemetry-osgi-runtime/target/opentelemetry-osgi-runtime-*.jar /app/bundle/
+COPY --from=build /workspace/opentelemetry-osgi-core/target/opentelemetry-osgi-core-*.jar /app/bundle/
 COPY --from=build /workspace/opentelemetry-osgi-client/target/opentelemetry-osgi-client-*.jar /app/bundle/
 COPY --from=build /workspace/opentelemetry-osgi-scr/target/opentelemetry-osgi-scr-*.jar /app/bundle/
 COPY --from=build /workspace/opentelemetry-osgi-log/target/opentelemetry-osgi-log-*.jar /app/bundle/

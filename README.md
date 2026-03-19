@@ -70,7 +70,7 @@ This separation allows libraries to instrument against the API without coupling 
 
 ## Project Scope
 
-This project brings OpenTelemetry to the OSGi ecosystem through five modules:
+This project brings OpenTelemetry to the OSGi ecosystem through six modules:
 
 ### `opentelemetry-osgi-runtime`
 
@@ -94,6 +94,15 @@ Configuration properties (PID `io.opentelemetry.osgi.runtime`):
 | `exporterType` | `logging` | Exporter type (currently `logging`) |
 | `additionalResourceAttributes` | (empty) | Extra attributes as `key=value` pairs |
 
+### `opentelemetry-osgi-core`
+
+Bridges the OSGi core framework into OpenTelemetry.
+This module exposes bundle and service state as telemetry signals using the OSGi framework APIs directly:
+
+- **`FrameworkMetricsComponent`** — Registers async gauges for total bundle count, active bundles, service count, and per-state bundle distribution
+- **`FrameworkEventComponent`** — Listens to `BundleEvent` and `ServiceEvent` and creates spans for each lifecycle change (install, start, stop, register, unregister) with rich attributes
+- **`BundleInventoryComponent`** — Emits structured log records for a complete bundle inventory snapshot at activation, including framework metadata
+
 ### `opentelemetry-osgi-client`
 
 A demo bundle that consumes the `OpenTelemetry` service via DS and demonstrates all three telemetry signals:
@@ -105,7 +114,11 @@ A demo bundle that consumes the `OpenTelemetry` service via DS and demonstrates 
 
 ### `opentelemetry-osgi-agent`
 
-An OpenTelemetry Java Agent extension that makes OSGi framework internals visible as telemetry.
+> **Note:** The agent module is currently non-functional as an OSGi bridge because the OTel Java Agent uses SPI, not OSGi, to load extensions.
+> It will be reworked or removed in a future iteration.
+> The functionality it was intended to provide is now available in `opentelemetry-osgi-core`.
+
+An OpenTelemetry Java Agent extension that was intended to make OSGi framework internals visible as telemetry.
 This module is independent from the runtime/client approach — it works with the [OpenTelemetry Java Agent](https://opentelemetry.io/docs/zero-code/java/agent/) and extends its auto-instrumentation capabilities as described in the [Agent Extension API](https://opentelemetry.io/docs/zero-code/java/agent/api/).
 
 The extension provides:
@@ -143,7 +156,7 @@ Registers a `LogListener` with the `LogReaderService` to capture all log entries
 mvn clean verify
 ```
 
-This builds all five modules.
+This builds all six modules.
 The agent extension module produces a shaded uber-JAR suitable for use as a Java Agent extension.
 
 ## Usage
@@ -223,6 +236,7 @@ Felix SCR (Service Component Runtime) provides Declarative Services support.
 
 Our bundles are auto-deployed into Felix:
 - **`opentelemetry-osgi-runtime`** activates and creates the SDK with OTLP export configured via environment variables
+- **`opentelemetry-osgi-core`** registers framework metrics, traces bundle/service lifecycle events, and logs a bundle inventory
 - **`opentelemetry-osgi-client`** activates its demo components, including a periodic scheduler that generates traces, metrics, and logs every 5 seconds
 - **`opentelemetry-osgi-scr`** inspects all DS components and publishes metrics/logs/traces for their states and health
 - **`opentelemetry-osgi-log`** captures all OSGi Log Service entries and forwards them as OpenTelemetry log records and metrics
