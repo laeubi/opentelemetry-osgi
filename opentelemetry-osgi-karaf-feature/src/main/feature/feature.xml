@@ -6,6 +6,14 @@
       opentelemetry-deps       — OpenTelemetry Java SDK wrapped as OSGi bundles
       opentelemetry-osgi       — Integration bundles (runtime, core, scr, log) + config
       opentelemetry-osgi-demo  — Adds the demo client module
+
+    OpenTelemetry uses java.util.ServiceLoader (SPI) internally for exporter
+    discovery, sender lookup, and context storage. In OSGi, SPI does not work
+    across bundle boundaries. Apache Aries SPI Fly (dynamic weaving) intercepts
+    ServiceLoader.load() calls and resolves providers from other bundles.
+
+    Bundles that CALL ServiceLoader.load() need: SPI-Consumer=*
+    Bundles that CONTAIN META-INF/services need: SPI-Provider=*
 -->
 <features name="opentelemetry-osgi-${project.version}"
           xmlns="http://karaf.apache.org/xmlns/features/v1.6.0"
@@ -17,33 +25,37 @@
         OpenTelemetry Java SDK wrapped as OSGi bundles.
         Reusable by any project that needs OTel in an OSGi container.
         Uses Karaf's wrap: protocol to add OSGi metadata to non-OSGi JARs.
+        SPI Fly headers enable cross-bundle ServiceLoader discovery.
     -->
     <feature name="opentelemetry-deps" version="${opentelemetry.version}"
              description="OpenTelemetry Java SDK wrapped for OSGi">
 
-        <!-- API and Context -->
-        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-api/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*</bundle>
-        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-context/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*</bundle>
+        <!-- SPI Fly must be installed before any SPI-annotated bundles -->
+        <feature prerequisite="true">spifly</feature>
+
+        <!-- API and Context (context uses SPI for ContextStorage) -->
+        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-api/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*&amp;SPI-Consumer=*</bundle>
+        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-context/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*&amp;SPI-Consumer=*</bundle>
 
         <!-- SDK Core -->
-        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-sdk-common/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*</bundle>
-        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-sdk/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*</bundle>
+        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-sdk-common/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*&amp;SPI-Consumer=*</bundle>
+        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-sdk/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*&amp;SPI-Consumer=*</bundle>
 
         <!-- SDK Signal Providers -->
-        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-sdk-trace/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*</bundle>
-        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-sdk-metrics/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*</bundle>
-        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-sdk-logs/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*</bundle>
+        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-sdk-trace/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*&amp;SPI-Consumer=*</bundle>
+        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-sdk-metrics/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*&amp;SPI-Consumer=*</bundle>
+        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-sdk-logs/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*&amp;SPI-Consumer=*</bundle>
 
         <!-- Exporters -->
-        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-exporter-common/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*</bundle>
-        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-exporter-logging/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*</bundle>
-        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-exporter-otlp/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*</bundle>
-        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-exporter-otlp-common/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*</bundle>
-        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-exporter-sender-jdk/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*</bundle>
+        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-exporter-common/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*&amp;SPI-Consumer=*</bundle>
+        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-exporter-logging/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*&amp;SPI-Provider=*</bundle>
+        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-exporter-otlp/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*&amp;SPI-Consumer=*&amp;SPI-Provider=*</bundle>
+        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-exporter-otlp-common/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*&amp;SPI-Consumer=*</bundle>
+        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-exporter-sender-jdk/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*&amp;SPI-Provider=*</bundle>
 
-        <!-- SDK Autoconfigure -->
+        <!-- SDK Autoconfigure (both consumer and provider of SPI services) -->
         <bundle>wrap:mvn:io.opentelemetry/opentelemetry-sdk-extension-autoconfigure-spi/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*</bundle>
-        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-sdk-extension-autoconfigure/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*</bundle>
+        <bundle>wrap:mvn:io.opentelemetry/opentelemetry-sdk-extension-autoconfigure/${opentelemetry.version}$Import-Package=*;resolution:=optional&amp;Export-Package=*&amp;SPI-Consumer=*&amp;SPI-Provider=*</bundle>
     </feature>
 
     <!--

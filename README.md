@@ -236,7 +236,7 @@ The easiest way to see the integration in action is the Docker Compose demo.
 It spins up the full Grafana observability stack with a single command:
 
 ```
-OSGi App (Felix + our bundles)
+OSGi App (Karaf + our features)
     │ OTLP/gRPC
     ▼
 OTel Collector (Gateway)
@@ -269,29 +269,30 @@ docker compose logs -f osgi-app
 Open [http://localhost:3000](http://localhost:3000) (no login required — anonymous admin is enabled).
 
 **Traces** — Go to *Explore → Tempo* and search for traces.
-You will see spans for simulated OSGi operations like `osgi.bundle.resolve`, `osgi.service.lookup`, and `osgi.config.update`, each with child spans showing validation and execution phases.
+You will see spans for OSGi lifecycle events like `osgi.bundle.started`, `osgi.service.registered`, and `osgi.scr.healthcheck`, each with attributes describing the bundle or service involved.
 
 **Metrics** — Go to *Explore → Prometheus* and query:
-- `osgi_demo_operations_total` — Count of simulated OSGi operations
-- `osgi_demo_operation_duration_milliseconds` — Duration histogram
-- `osgi_client_requests_total` — Request counter from the metrics demo
-- `osgi_client_jvm_memory_used_bytes` — JVM heap memory gauge
+- `osgi_framework_bundles` — Number of bundles by state
+- `osgi_framework_services` — Total registered services
+- `osgi_scr_components` — Declarative Services component states
+- `osgi_log_entries_total` — Log entries by level
 
 **Logs** — Go to *Explore → Loki* and browse log streams.
-You will see structured log records for each OSGi operation, bundle discovery events, and warning/error messages — all with attributes you can filter on.
+You will see structured log records for bundle/service inventory snapshots, SCR component changes, forwarded OSGi Log Service entries, and demo client operations.
 
 ### Architecture
 
-The demo uses an embedded [Apache Felix](https://felix.apache.org/) OSGi framework.
-OpenTelemetry SDK and exporter JARs are on the system classpath, and their packages are exported to the OSGi framework via `org.osgi.framework.system.packages.extra`.
-Felix SCR (Service Component Runtime) provides Declarative Services support.
+The demo uses [Apache Karaf](https://karaf.apache.org/) as the OSGi container.
+Our `opentelemetry-osgi-demo` Karaf feature is pre-installed and boots automatically.
+Karaf's `wrap:` protocol turns the non-OSGi OpenTelemetry SDK JARs into proper OSGi bundles.
+Apache Aries SPI Fly (dynamic weaving) enables cross-bundle `ServiceLoader` discovery required by the OTel SDK.
 
-Our bundles are auto-deployed into Felix:
-- **`opentelemetry-osgi-runtime`** activates and creates the SDK with OTLP export configured via environment variables
-- **`opentelemetry-osgi-core`** registers framework metrics, traces bundle/service lifecycle events, and logs a bundle inventory
-- **`opentelemetry-osgi-client`** activates its demo components, including a periodic scheduler that generates traces, metrics, and logs every 5 seconds
+On boot, the following components activate:
+- **`opentelemetry-osgi-runtime`** creates the OpenTelemetry SDK with OTLP export configured via environment variables
+- **`opentelemetry-osgi-core`** registers framework metrics, traces bundle/service lifecycle events, and logs bundle/service inventory snapshots
+- **`opentelemetry-osgi-client`** runs demo components that periodically generate traces, metrics, and logs
 - **`opentelemetry-osgi-scr`** inspects all DS components and publishes metrics/logs/traces for their states and health
-- **`opentelemetry-osgi-log`** captures all OSGi Log Service entries and forwards them as OpenTelemetry log records and metrics
+- **`opentelemetry-osgi-log`** captures OSGi Log Service entries and forwards them as OpenTelemetry log records and metrics
 
 ### Stop the Demo
 
@@ -317,7 +318,8 @@ docker compose down -v
 | OSGi Framework | R8 (1.10.0) | Module system |
 | OSGi Declarative Services | 1.5.1 | Component model |
 | bnd-maven-plugin | 7.1.0 | OSGi metadata generation |
-| Apache Felix | 7.0.5 | OSGi runtime (Docker demo) |
+| Apache Karaf | 4.4.7 | OSGi container (Docker demo) |
+| Apache Aries SPI Fly | 1.3.7 | Cross-bundle ServiceLoader support |
 | Grafana | 11.5.2 | Observability UI |
 | Grafana Tempo | 2.7.2 | Distributed tracing backend |
 | Prometheus | 3.2.1 | Metrics backend |

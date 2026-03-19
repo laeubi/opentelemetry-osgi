@@ -96,6 +96,14 @@
                     <groupId>biz.aQute.bnd</groupId>
                     <artifactId>bnd-maven-plugin</artifactId>
                     <version>${bnd.version}</version>
+                    <configuration>
+                        <bnd><![CDATA[
+# Do not generate Require-Capability for osgi.service from DS @Reference.
+# Karaf's feature resolver cannot match runtime-only DS service capabilities.
+# DS handles service wiring at runtime; manifest requirements are redundant.
+-dsannotations-options: norequirements
+                        ]]></bnd>
+                    </configuration>
                     <executions>
                         <execution>
                             <id>generate-osgi-metadata</id>

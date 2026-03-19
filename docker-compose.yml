@@ -1,7 +1,7 @@
 services:
 
   # ==========================================================================
-  # OSGi Application (Apache Felix with OpenTelemetry bundles)
+  # OSGi Application (Apache Karaf with OpenTelemetry features)
   # ==========================================================================
   osgi-app:
     build:

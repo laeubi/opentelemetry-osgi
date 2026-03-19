@@ -14,8 +14,7 @@ opentelemetry-osgi/
 ├── pom.xml                          # Parent POM with dependency management
 ├── docker-compose.yml               # Full Grafana observability stack
 ├── docker/
-│   ├── Dockerfile                   # Multi-stage build (Maven → Felix runtime)
-│   ├── felix-config.properties      # Felix OSGi config with system package exports
+│   ├── Dockerfile                   # Multi-stage build (Maven → Karaf runtime)
 │   ├── otel-collector-config.yaml   # OTel Collector pipeline config
 │   ├── tempo.yaml                   # Grafana Tempo config
 │   ├── prometheus.yml               # Prometheus config
@@ -101,8 +100,11 @@ docker compose build osgi-app && docker compose up -d osgi-app
 
 ## Docker Architecture
 
-The Docker demo uses an embedded Apache Felix 7.0.5 OSGi framework (not Karaf).
-OpenTelemetry JARs are placed on the system classpath and their packages are exported to OSGi via `org.osgi.framework.system.packages.extra` in `docker/felix-config.properties`.
+The Docker demo uses Apache Karaf 4.4.7 as the OSGi container.
+The `opentelemetry-osgi-demo` feature is pre-installed via `featuresBoot` in `org.apache.karaf.features.cfg`.
+All project JARs and OpenTelemetry SDK JARs are copied into Karaf's `system/` Maven repository during the Docker build.
+Karaf's `wrap:` protocol adds OSGi metadata to non-OSGi OTel JARs at install time.
+Apache Aries SPI Fly (dynamic weaving) enables cross-bundle `ServiceLoader` discovery required by the OTel SDK.
 
 **Key environment variables** (set in `docker-compose.yml`):
 - `OTEL_EXPORTER_OTLP_ENDPOINT` — Triggers OTLP export mode in the runtime (default: `http://otel-collector:4317`)
@@ -111,7 +113,6 @@ OpenTelemetry JARs are placed on the system classpath and their packages are exp
 **Data flow**: OSGi App → OTel Collector (OTLP/gRPC) → Tempo + Prometheus + Loki → Grafana
 
 When modifying the OTel Collector pipeline, edit `docker/otel-collector-config.yaml`.
-When adding new system packages for OSGi, edit `docker/felix-config.properties`.
 Grafana datasources are auto-provisioned from `docker/grafana/provisioning/datasources/datasources.yaml`.
 
 ## Code Conventions
@@ -233,7 +234,7 @@ The Log module uses the OSGi Log Service from `org.osgi.service.log`:
 - Maps `LogLevel` (AUDIT, ERROR, WARN, INFO, DEBUG, TRACE) to OpenTelemetry `Severity`
 - Enriches OTel log records with: bundle symbolic name/id/version, logger name, sequence number, thread info, service reference, source code location, exception details
 - `LogMetricsComponent` maintains counters by log level and a dedicated error counter by bundle name
-- Requires Felix Log Service bundle in the OSGi container (added as `org.apache.felix:org.apache.felix.log:1.3.0` in Docker)
+- Requires OSGi Log Service in the container (Karaf provides via Pax Logging; in standalone Felix add `org.apache.felix:org.apache.felix.log:1.3.0`)
 
 ## Karaf Feature Module Notes
 
@@ -269,8 +270,9 @@ When adding new OTel JARs, add a `<bundle>wrap:mvn:...</bundle>` entry to the `o
 - **OSGi scope**: OSGi dependencies must be `provided` scope in runtime/client modules (the framework provides them at runtime)
 - **bnd-maven-plugin + maven-jar-plugin**: Both are configured in the parent POM; the jar plugin reads the bnd-generated `MANIFEST.MF`. The agent and karaf-feature modules skip bnd.
 - **Non-bundle modules**: Agent (`<packaging>jar</packaging>` with bnd disabled) and karaf-feature (`<packaging>feature</packaging>`) are not OSGi bundles.
-- **OTel JARs are NOT OSGi bundles**: They lack `Bundle-SymbolicName` headers. In the Docker demo, they are on the system classpath and exported as system packages. In Karaf, they are wrapped via the `wrap:` protocol in the feature descriptor.
-- **Karaf wrap protocol**: Use `Import-Package=*;resolution:=optional&amp;Export-Package=*` to avoid resolution failures from transitive/optional deps.
-- **System packages in Docker**: When adding new OTel dependencies to the runtime, their packages must also be added to `docker/felix-config.properties` under `org.osgi.framework.system.packages.extra`
+- **OTel JARs are NOT OSGi bundles**: They lack `Bundle-SymbolicName` headers. In Karaf, they are wrapped via the `wrap:` protocol in the feature descriptor with SPI Fly headers.
+- **SPI Fly**: OpenTelemetry uses `ServiceLoader` internally. In OSGi, cross-bundle SPI requires Apache Aries SPI Fly. Add `SPI-Consumer=*` / `SPI-Provider=*` headers to wrapped bundles and depend on the `spifly` Karaf feature.
 - **OTLP exporter**: The runtime auto-detects OTLP mode from the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable — no config change needed
-- **Docker multi-stage build**: The `docker/Dockerfile` caches Maven dependencies separately from the source code for faster rebuilds
+- **Docker multi-stage build**: The `docker/Dockerfile` builds with Maven, then copies artifacts into Karaf's `system/` directory using Maven repository layout
+- **Karaf featuresBoot**: Pre-installed features are listed in `org.apache.karaf.features.cfg`; the Dockerfile adds the demo feature via `sed`
+- **bnd osgi.service requirements**: The `-dsannotations-options: norequirements` bnd setting is required to suppress `Require-Capability: osgi.service` headers that break Karaf's feature resolver
