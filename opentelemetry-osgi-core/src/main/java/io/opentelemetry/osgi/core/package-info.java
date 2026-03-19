@@ -9,8 +9,10 @@
  *       bundle count, active bundles, service count, and per-state bundle distribution</li>
  *   <li>{@link io.opentelemetry.osgi.core.FrameworkEventComponent} — Traces for bundle
  *       and service lifecycle events (install, start, stop, register, unregister)</li>
- *   <li>{@link io.opentelemetry.osgi.core.BundleInventoryComponent} — Structured log records
- *       for a complete bundle inventory snapshot at activation</li>
+ *   <li>{@link io.opentelemetry.osgi.core.BundleInventoryComponent} — Live inventory of bundles:
+ *       emits a snapshot at activation and change records on every bundle lifecycle event</li>
+ *   <li>{@link io.opentelemetry.osgi.core.ServiceInventoryComponent} — Live inventory of services:
+ *       emits a snapshot at activation and change records on every service registration change</li>
  * </ul>
  */
 package io.opentelemetry.osgi.core;

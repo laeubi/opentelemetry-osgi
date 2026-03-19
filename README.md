@@ -101,7 +101,8 @@ This module exposes bundle and service state as telemetry signals using the OSGi
 
 - **`FrameworkMetricsComponent`** — Registers async gauges for total bundle count, active bundles, service count, and per-state bundle distribution
 - **`FrameworkEventComponent`** — Listens to `BundleEvent` and `ServiceEvent` and creates spans for each lifecycle change (install, start, stop, register, unregister) with rich attributes
-- **`BundleInventoryComponent`** — Emits structured log records for a complete bundle inventory snapshot at activation, including framework metadata
+- **`BundleInventoryComponent`** — Live bundle inventory: emits a full snapshot at activation, then a log record for every bundle lifecycle change (install, start, stop, update, uninstall) via `SynchronousBundleListener`
+- **`ServiceInventoryComponent`** — Live service inventory: emits a full snapshot at activation, then a log record for every service registration, unregistration, and property modification — includes using-bundles info
 
 ### `opentelemetry-osgi-client`
 

@@ -29,7 +29,8 @@ opentelemetry-osgi/
 │   └── src/main/java/io/opentelemetry/osgi/core/
 │       ├── FrameworkMetricsComponent.java    # Bundle/service count gauges
 │       ├── FrameworkEventComponent.java      # Bundle/service event tracing
-│       ├── BundleInventoryComponent.java     # Bundle inventory as structured logs
+│       ├── BundleInventoryComponent.java     # Live bundle inventory (snapshot + changes)
+│       ├── ServiceInventoryComponent.java    # Live service inventory (snapshot + changes)
 │       ├── BundleStateUtil.java              # Bundle state name utility
 │       └── BundleInfo.java                   # Bundle state record
 ├── opentelemetry-osgi-client/       # Demo bundle consuming OpenTelemetry service
@@ -173,6 +174,8 @@ The core module (`opentelemetry-osgi-core`) replaces the agent module's function
 
 - Uses `@Reference OpenTelemetry` and `BundleContext` (injected via `@Activate`) — no `FrameworkUtil.getBundle()` workaround
 - Registers as `BundleListener` and `ServiceListener` in `@Activate`, unregisters in `@Deactivate`
+- `BundleInventoryComponent` uses `SynchronousBundleListener` to capture events before the framework proceeds; emits snapshot at activation + change log records for every bundle event
+- `ServiceInventoryComponent` uses `ServiceListener` to track registrations/unregistrations/modifications; emits snapshot at activation + change log records with using-bundles info
 - Async gauges use `ObservableLongGauge` with proper cleanup via `close()` on deactivate
 - `BundleStateUtil` provides the `bundleStateToString()` utility shared across components
 - `BundleInfo` record captures immutable bundle state snapshots
