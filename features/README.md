@@ -33,7 +33,32 @@ opentelemetry-osgi-demo
               └── scr (Karaf built-in)
 ```
 
+### opentelemetry-osgi-karaf-distribution
+
+A pre-built Apache Karaf distribution with all features and dependencies pre-embedded.
+Uses `karaf-assembly` packaging via the `karaf-maven-plugin`.
+
+- All bundles, feature descriptors, and OTel JARs are resolved at build time into `system/`
+- Includes SPI Fly, ASM, and all standard Karaf features needed at runtime
+- No network access required — the distribution is fully self-contained
+- Output: `target/assembly/` (ready-to-run directory) and `.tar.gz`/`.zip` archives
+
+This module is used by the Docker demo and can also be run standalone.
+
 ## Deployment
+
+### Option 1: Pre-built Distribution (Recommended)
+
+```bash
+# Build the entire project
+mvn clean install -DskipTests
+
+# Extract and run the distribution
+cd features/opentelemetry-osgi-karaf-distribution/target/assembly
+bin/karaf
+```
+
+### Option 2: Install into Existing Karaf
 
 ```bash
 # Add all feature repositories

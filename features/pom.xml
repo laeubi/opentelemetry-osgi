@@ -19,5 +19,6 @@
         <module>opentelemetry-osgi-karaf-feature</module>
         <module>opentelemetry-osgi-integration-karaf-feature</module>
         <module>opentelemetry-osgi-demo-karaf-feature</module>
+        <module>opentelemetry-osgi-karaf-distribution</module>
     </modules>
 </project>

@@ -45,21 +45,20 @@ opentelemetry-osgi/
 mvn clean install
 ```
 
-## Quick Start — Karaf Deployment
+## Quick Start — Pre-built Distribution
 
-After building, deploy into an [Apache Karaf](https://karaf.apache.org/) container:
+The fastest way to get started is with the pre-built Karaf distribution:
 
 ```bash
-# Add all feature repositories
-feature:repo-add mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-karaf-feature/0.1.0-SNAPSHOT/xml/features
-feature:repo-add mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-integration-karaf-feature/0.1.0-SNAPSHOT/xml/features
-feature:repo-add mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-demo-karaf-feature/0.1.0-SNAPSHOT/xml/features
-
-# Install the full demo (includes runtime + integrations + demo client)
-feature:install opentelemetry-osgi-demo
+mvn clean install -DskipTests
+cd features/opentelemetry-osgi-karaf-distribution/target/assembly
+bin/karaf
 ```
 
-See [features/README.md](features/README.md) for more deployment options.
+All features are pre-installed and start automatically.
+No network access is required at runtime.
+
+For manual deployment into an existing Karaf, see [features/README.md](features/README.md).
 
 ## Docker Demo
 

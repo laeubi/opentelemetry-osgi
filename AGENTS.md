@@ -62,8 +62,11 @@ opentelemetry-osgi/
 │   │       └── org.eclipse.osgi.technology.incubator.opentelemetry.runtime.cfg
 │   ├── opentelemetry-osgi-integration-karaf-feature/  # Integration bundles feature
 │   │   └── src/main/feature/feature.xml               # opentelemetry-osgi-integrations
-│   └── opentelemetry-osgi-demo-karaf-feature/         # Demo feature
-│       └── src/main/feature/feature.xml               # opentelemetry-osgi-demo
+│   ├── opentelemetry-osgi-demo-karaf-feature/         # Demo feature
+│   │   └── src/main/feature/feature.xml               # opentelemetry-osgi-demo
+│   └── opentelemetry-osgi-karaf-distribution/         # Pre-built Karaf distribution
+│       ├── pom.xml                                    # karaf-assembly packaging
+│       └── src/main/resources/assembly/etc/           # Config overlay
 ├── incubator/                       # Experimental modules
 │   ├── pom.xml                      # Aggregator POM
 │   └── opentelemetry-osgi-agent/    # Java Agent extension (ByteBuddy)
@@ -91,6 +94,7 @@ opentelemetry-osgi/
 | Runtime Feature | `opentelemetry-osgi-karaf-feature` | `features/` |
 | Integration Feature | `opentelemetry-osgi-integration-karaf-feature` | `features/` |
 | Demo Feature | `opentelemetry-osgi-demo-karaf-feature` | `features/` |
+| Karaf Distribution | `opentelemetry-osgi-karaf-distribution` | `features/` |
 | Agent Extension | `opentelemetry-osgi-agent` | `incubator/` |
 
 ### Aggregator POMs
@@ -141,10 +145,9 @@ docker compose build osgi-app && docker compose up -d osgi-app
 
 ## Docker Architecture
 
-The Docker demo uses Apache Karaf 4.4.7 as the OSGi container.
-The `opentelemetry-osgi-demo` feature is pre-installed via `featuresBoot` in `org.apache.karaf.features.cfg`.
-All project JARs and OpenTelemetry SDK JARs are copied into Karaf's `system/` Maven repository during the Docker build.
-Karaf's `wrap:` protocol adds OSGi metadata to non-OSGi OTel JARs at install time.
+The Docker demo uses a pre-built Apache Karaf 4.4.7 distribution from the `opentelemetry-osgi-karaf-distribution` module.
+The `karaf-assembly` packaging resolves all bundles, features, and dependencies at Maven build time into a self-contained distribution.
+The Dockerfile builds the Maven project, then copies the assembled distribution into the runtime image — no manual JAR copying or `sed` configuration hacking needed.
 Apache Aries SPI Fly (dynamic weaving) enables cross-bundle `ServiceLoader` discovery required by the OTel SDK.
 
 **Key environment variables** (set in `docker-compose.yml`):
@@ -245,6 +248,18 @@ feature:install opentelemetry-osgi-demo
 
 When adding new OTel JARs, add a `<bundle>wrap:mvn:...</bundle>` entry to the `opentelemetry-deps` feature in `features/opentelemetry-osgi-karaf-feature/src/main/feature/feature.xml`.
 
+### Karaf Distribution Module
+
+The `opentelemetry-osgi-karaf-distribution` module (`features/opentelemetry-osgi-karaf-distribution/`) uses `karaf-assembly` packaging:
+
+- Dependencies: `framework` KAR (base), `standard` + `specs` feature repos, our 3 feature descriptor XMLs
+- `bootFeatures` lists essential Karaf features (wrap, bundle, config, shell, ssh, etc.) + `opentelemetry-osgi-demo`
+- The assembly resolves ALL transitive dependencies into `target/assembly/system/` at build time
+- Output: `target/assembly/` (ready-to-run directory) + `.tar.gz`/`.zip` archives
+- bnd-maven-plugin and maven-jar-plugin are skipped (not an OSGi bundle)
+- Build takes ~40 seconds after initial dependency resolution
+- Config overlay: `src/main/resources/assembly/etc/` files are copied into the distribution's `etc/`
+
 ## Agent Module Notes
 
 The agent module (`incubator/opentelemetry-osgi-agent`) uses the OTel Java Agent Extension API with ByteBuddy bytecode instrumentation.
@@ -312,9 +327,8 @@ The Log module (`integrations/opentelemetry-osgi-log`) uses the OSGi Log Service
 - **OTel JARs are NOT OSGi bundles**: They lack `Bundle-SymbolicName` headers. In Karaf, they are wrapped via the `wrap:` protocol in the feature descriptor with SPI Fly headers.
 - **SPI Fly**: OpenTelemetry uses `ServiceLoader` internally. In OSGi, cross-bundle SPI requires Apache Aries SPI Fly. Add `SPI-Consumer=*` / `SPI-Provider=*` headers to wrapped bundles and depend on the `spifly` Karaf feature.
 - **OTLP exporter**: The runtime auto-detects OTLP mode from the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable — no config change needed
-- **Docker multi-stage build**: The `docker/Dockerfile` builds with Maven, then copies artifacts into Karaf's `system/` directory using Maven repository layout
-- **Karaf featuresBoot**: Pre-installed features are listed in `org.apache.karaf.features.cfg`; the Dockerfile adds the demo feature via `sed`
+- **Docker uses pre-built distribution**: The `docker/Dockerfile` builds with Maven, then copies the assembled Karaf distribution from `features/opentelemetry-osgi-karaf-distribution/target/assembly` — all features, bundles, and config are pre-embedded
+- **No sed hacking in Docker**: The karaf-assembly plugin handles `featuresBoot` and `featuresRepositories` configuration — no manual `sed` manipulation needed
 - **bnd osgi.service requirements**: The `-dsannotations-options: norequirements` bnd setting is required to suppress `Require-Capability: osgi.service` headers that break Karaf's feature resolver
 - **Relative paths**: Module POMs use `<relativePath>../../pom.xml</relativePath>` since modules are two levels deep (e.g. `core/opentelemetry-osgi-runtime/pom.xml`)
-- **Three feature repos in Docker**: The Dockerfile registers all three feature repositories in `org.apache.karaf.features.cfg`
 - **Maven groupId path**: The new groupId `org.eclipse.osgi-technology.incubator` maps to `org/eclipse/osgi-technology/incubator/` in Maven repository layout (note: hyphen in path)
