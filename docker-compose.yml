@@ -63,7 +63,7 @@ services:
       - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
     ports:
-      - "9090:9090"
+      - "9080:9080"
     networks:
       - otel-network
 

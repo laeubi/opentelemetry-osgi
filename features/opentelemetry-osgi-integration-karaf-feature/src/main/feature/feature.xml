@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Apache Karaf feature descriptor for OpenTelemetry OSGi Integrations.
+
+    Deploys the integration bundles that bridge OSGi subsystems to OpenTelemetry:
+      - Framework bridge (bundles, services, events)
+      - SCR introspection (Declarative Services component state)
+      - Log bridge (OSGi Log Service forwarding)
+-->
+<features name="opentelemetry-osgi-integrations-${project.version}"
+          xmlns="http://karaf.apache.org/xmlns/features/v1.6.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://karaf.apache.org/xmlns/features/v1.6.0
+                              http://karaf.apache.org/xmlns/features/v1.6.0">
+
+    <!--
+        OpenTelemetry OSGi Integrations.
+        Bridges OSGi framework, SCR, and Log Service state into OpenTelemetry.
+        Depends on the opentelemetry-osgi feature which provides the runtime.
+    -->
+    <feature name="opentelemetry-osgi-integrations" version="${project.version}"
+             description="OpenTelemetry OSGi Integration Bundles">
+        <feature version="${project.version}">opentelemetry-osgi</feature>
+
+        <!-- Framework: instruments bundle/service events and inventory as metrics and logs -->
+        <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-framework/${project.version}</bundle>
+        <!-- SCR: exposes Declarative Services component state as telemetry -->
+        <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-scr/${project.version}</bundle>
+        <!-- Log: forwards OSGi Log Service entries to OpenTelemetry logs -->
+        <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-log/${project.version}</bundle>
+    </feature>
+
+</features>

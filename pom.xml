@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>io.opentelemetry.osgi</groupId>
+    <groupId>org.eclipse.osgi-technology.incubator</groupId>
     <artifactId>opentelemetry-osgi-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
@@ -21,13 +21,11 @@
     </licenses>
 
     <modules>
-        <module>opentelemetry-osgi-runtime</module>
-        <module>opentelemetry-osgi-core</module>
-        <module>opentelemetry-osgi-client</module>
-        <module>opentelemetry-osgi-scr</module>
-        <module>opentelemetry-osgi-log</module>
-        <module>opentelemetry-osgi-agent</module>
-        <module>opentelemetry-osgi-karaf-feature</module>
+        <module>core</module>
+        <module>integrations</module>
+        <module>demo</module>
+        <module>features</module>
+        <module>incubator</module>
     </modules>
 
     <properties>

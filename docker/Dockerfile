@@ -12,20 +12,47 @@ FROM maven:3.9-eclipse-temurin-21 AS build
 
 WORKDIR /workspace
 
-# Cache dependencies first (improves rebuild speed)
+# Copy POM files for dependency caching
 COPY pom.xml .
-COPY opentelemetry-osgi-runtime/pom.xml opentelemetry-osgi-runtime/
-COPY opentelemetry-osgi-core/pom.xml opentelemetry-osgi-core/
-COPY opentelemetry-osgi-client/pom.xml opentelemetry-osgi-client/
-COPY opentelemetry-osgi-scr/pom.xml opentelemetry-osgi-scr/
-COPY opentelemetry-osgi-log/pom.xml opentelemetry-osgi-log/
-COPY opentelemetry-osgi-agent/pom.xml opentelemetry-osgi-agent/
-COPY opentelemetry-osgi-karaf-feature/pom.xml opentelemetry-osgi-karaf-feature/
+COPY core/pom.xml core/
+COPY core/opentelemetry-osgi-runtime/pom.xml core/opentelemetry-osgi-runtime/
+COPY integrations/pom.xml integrations/
+COPY integrations/opentelemetry-osgi-framework/pom.xml integrations/opentelemetry-osgi-framework/
+COPY integrations/opentelemetry-osgi-scr/pom.xml integrations/opentelemetry-osgi-scr/
+COPY integrations/opentelemetry-osgi-log/pom.xml integrations/opentelemetry-osgi-log/
+COPY demo/pom.xml demo/
+COPY demo/opentelemetry-osgi-demo/pom.xml demo/opentelemetry-osgi-demo/
+COPY features/pom.xml features/
+COPY features/opentelemetry-osgi-karaf-feature/pom.xml features/opentelemetry-osgi-karaf-feature/
+COPY features/opentelemetry-osgi-integration-karaf-feature/pom.xml features/opentelemetry-osgi-integration-karaf-feature/
+COPY features/opentelemetry-osgi-demo-karaf-feature/pom.xml features/opentelemetry-osgi-demo-karaf-feature/
+COPY incubator/pom.xml incubator/
+COPY incubator/opentelemetry-osgi-agent/pom.xml incubator/opentelemetry-osgi-agent/
 RUN mvn dependency:go-offline -q -B 2>/dev/null || true
 
 # Build the project
 COPY . .
 RUN mvn clean install -DskipTests -q -B
+
+# Download SPI Fly and ASM JARs (Karaf runtime dependencies, not in our POM)
+RUN mvn dependency:copy -q -B \
+    -Dartifact=org.apache.aries.spifly:org.apache.aries.spifly.dynamic.bundle:1.3.7:jar \
+    -DoutputDirectory=/tmp/deps && \
+    mvn dependency:copy -q -B \
+    -Dartifact=org.ow2.asm:asm:9.7.1:jar \
+    -DoutputDirectory=/tmp/deps && \
+    mvn dependency:copy -q -B \
+    -Dartifact=org.ow2.asm:asm-util:9.7.1:jar \
+    -DoutputDirectory=/tmp/deps && \
+    mvn dependency:copy -q -B \
+    -Dartifact=org.ow2.asm:asm-tree:9.7.1:jar \
+    -DoutputDirectory=/tmp/deps && \
+    mvn dependency:copy -q -B \
+    -Dartifact=org.ow2.asm:asm-analysis:9.7.1:jar \
+    -DoutputDirectory=/tmp/deps && \
+    mvn dependency:copy -q -B \
+    -Dartifact=org.ow2.asm:asm-commons:9.7.1:jar \
+    -DoutputDirectory=/tmp/deps
 
 # ---------------------------------------------------------------------------
 # Stage 2: Karaf runtime with our feature pre-deployed
@@ -47,25 +74,29 @@ ENV PATH="${KARAF_HOME}/bin:${PATH}"
 
 # ---- Populate Karaf's system Maven repository with our artifacts ----
 
-# Helper: Maven repo layout base paths
-# Our bundles: io/opentelemetry/osgi/<artifact>/<version>/<artifact>-<version>.jar
+# New groupId path: org/eclipse/osgi-technology/incubator
+# Our bundles: org/eclipse/osgi-technology/incubator/<artifact>/<version>/<artifact>-<version>.jar
 # OTel JARs:   io/opentelemetry/<artifact>/<version>/<artifact>-<version>.jar
 
 # Copy our project bundle JARs
-COPY --from=build /workspace/opentelemetry-osgi-runtime/target/opentelemetry-osgi-runtime-${PROJECT_VERSION}.jar \
-    ${KARAF_HOME}/system/io/opentelemetry/osgi/opentelemetry-osgi-runtime/${PROJECT_VERSION}/opentelemetry-osgi-runtime-${PROJECT_VERSION}.jar
-COPY --from=build /workspace/opentelemetry-osgi-core/target/opentelemetry-osgi-core-${PROJECT_VERSION}.jar \
-    ${KARAF_HOME}/system/io/opentelemetry/osgi/opentelemetry-osgi-core/${PROJECT_VERSION}/opentelemetry-osgi-core-${PROJECT_VERSION}.jar
-COPY --from=build /workspace/opentelemetry-osgi-client/target/opentelemetry-osgi-client-${PROJECT_VERSION}.jar \
-    ${KARAF_HOME}/system/io/opentelemetry/osgi/opentelemetry-osgi-client/${PROJECT_VERSION}/opentelemetry-osgi-client-${PROJECT_VERSION}.jar
-COPY --from=build /workspace/opentelemetry-osgi-scr/target/opentelemetry-osgi-scr-${PROJECT_VERSION}.jar \
-    ${KARAF_HOME}/system/io/opentelemetry/osgi/opentelemetry-osgi-scr/${PROJECT_VERSION}/opentelemetry-osgi-scr-${PROJECT_VERSION}.jar
-COPY --from=build /workspace/opentelemetry-osgi-log/target/opentelemetry-osgi-log-${PROJECT_VERSION}.jar \
-    ${KARAF_HOME}/system/io/opentelemetry/osgi/opentelemetry-osgi-log/${PROJECT_VERSION}/opentelemetry-osgi-log-${PROJECT_VERSION}.jar
+COPY --from=build /workspace/core/opentelemetry-osgi-runtime/target/opentelemetry-osgi-runtime-${PROJECT_VERSION}.jar \
+    ${KARAF_HOME}/system/org/eclipse/osgi-technology/incubator/opentelemetry-osgi-runtime/${PROJECT_VERSION}/opentelemetry-osgi-runtime-${PROJECT_VERSION}.jar
+COPY --from=build /workspace/integrations/opentelemetry-osgi-framework/target/opentelemetry-osgi-framework-${PROJECT_VERSION}.jar \
+    ${KARAF_HOME}/system/org/eclipse/osgi-technology/incubator/opentelemetry-osgi-framework/${PROJECT_VERSION}/opentelemetry-osgi-framework-${PROJECT_VERSION}.jar
+COPY --from=build /workspace/integrations/opentelemetry-osgi-scr/target/opentelemetry-osgi-scr-${PROJECT_VERSION}.jar \
+    ${KARAF_HOME}/system/org/eclipse/osgi-technology/incubator/opentelemetry-osgi-scr/${PROJECT_VERSION}/opentelemetry-osgi-scr-${PROJECT_VERSION}.jar
+COPY --from=build /workspace/integrations/opentelemetry-osgi-log/target/opentelemetry-osgi-log-${PROJECT_VERSION}.jar \
+    ${KARAF_HOME}/system/org/eclipse/osgi-technology/incubator/opentelemetry-osgi-log/${PROJECT_VERSION}/opentelemetry-osgi-log-${PROJECT_VERSION}.jar
+COPY --from=build /workspace/demo/opentelemetry-osgi-demo/target/opentelemetry-osgi-demo-${PROJECT_VERSION}.jar \
+    ${KARAF_HOME}/system/org/eclipse/osgi-technology/incubator/opentelemetry-osgi-demo/${PROJECT_VERSION}/opentelemetry-osgi-demo-${PROJECT_VERSION}.jar
 
-# Copy the feature descriptor
-COPY --from=build /workspace/opentelemetry-osgi-karaf-feature/target/feature/feature.xml \
-    ${KARAF_HOME}/system/io/opentelemetry/osgi/opentelemetry-osgi-karaf-feature/${PROJECT_VERSION}/opentelemetry-osgi-karaf-feature-${PROJECT_VERSION}-features.xml
+# Copy all three feature descriptors
+COPY --from=build /workspace/features/opentelemetry-osgi-karaf-feature/target/feature/feature.xml \
+    ${KARAF_HOME}/system/org/eclipse/osgi-technology/incubator/opentelemetry-osgi-karaf-feature/${PROJECT_VERSION}/opentelemetry-osgi-karaf-feature-${PROJECT_VERSION}-features.xml
+COPY --from=build /workspace/features/opentelemetry-osgi-integration-karaf-feature/target/feature/feature.xml \
+    ${KARAF_HOME}/system/org/eclipse/osgi-technology/incubator/opentelemetry-osgi-integration-karaf-feature/${PROJECT_VERSION}/opentelemetry-osgi-integration-karaf-feature-${PROJECT_VERSION}-features.xml
+COPY --from=build /workspace/features/opentelemetry-osgi-demo-karaf-feature/target/feature/feature.xml \
+    ${KARAF_HOME}/system/org/eclipse/osgi-technology/incubator/opentelemetry-osgi-demo-karaf-feature/${PROJECT_VERSION}/opentelemetry-osgi-demo-karaf-feature-${PROJECT_VERSION}-features.xml
 
 # Copy OpenTelemetry SDK JARs (needed by wrap: protocol at feature install time)
 COPY --from=build /root/.m2/repository/io/opentelemetry/opentelemetry-api/${OTEL_VERSION}/opentelemetry-api-${OTEL_VERSION}.jar \
@@ -97,11 +128,28 @@ COPY --from=build /root/.m2/repository/io/opentelemetry/opentelemetry-sdk-extens
 COPY --from=build /root/.m2/repository/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure/${OTEL_VERSION}/opentelemetry-sdk-extension-autoconfigure-${OTEL_VERSION}.jar \
     ${KARAF_HOME}/system/io/opentelemetry/opentelemetry-sdk-extension-autoconfigure/${OTEL_VERSION}/opentelemetry-sdk-extension-autoconfigure-${OTEL_VERSION}.jar
 
-# ---- Configure Karaf to install our feature on boot ----
+# Copy SPI Fly and ASM dependencies (required by the spifly feature, not bundled in Karaf)
+ARG SPIFLY_VERSION=1.3.7
+ARG ASM_VERSION=9.7.1
 
-# Add our feature repository and add demo feature to boot list
+COPY --from=build /root/.m2/repository/org/apache/aries/spifly/org.apache.aries.spifly.dynamic.bundle/${SPIFLY_VERSION}/org.apache.aries.spifly.dynamic.bundle-${SPIFLY_VERSION}.jar \
+    ${KARAF_HOME}/system/org/apache/aries/spifly/org.apache.aries.spifly.dynamic.bundle/${SPIFLY_VERSION}/org.apache.aries.spifly.dynamic.bundle-${SPIFLY_VERSION}.jar
+COPY --from=build /root/.m2/repository/org/ow2/asm/asm/${ASM_VERSION}/asm-${ASM_VERSION}.jar \
+    ${KARAF_HOME}/system/org/ow2/asm/asm/${ASM_VERSION}/asm-${ASM_VERSION}.jar
+COPY --from=build /root/.m2/repository/org/ow2/asm/asm-util/${ASM_VERSION}/asm-util-${ASM_VERSION}.jar \
+    ${KARAF_HOME}/system/org/ow2/asm/asm-util/${ASM_VERSION}/asm-util-${ASM_VERSION}.jar
+COPY --from=build /root/.m2/repository/org/ow2/asm/asm-tree/${ASM_VERSION}/asm-tree-${ASM_VERSION}.jar \
+    ${KARAF_HOME}/system/org/ow2/asm/asm-tree/${ASM_VERSION}/asm-tree-${ASM_VERSION}.jar
+COPY --from=build /root/.m2/repository/org/ow2/asm/asm-analysis/${ASM_VERSION}/asm-analysis-${ASM_VERSION}.jar \
+    ${KARAF_HOME}/system/org/ow2/asm/asm-analysis/${ASM_VERSION}/asm-analysis-${ASM_VERSION}.jar
+COPY --from=build /root/.m2/repository/org/ow2/asm/asm-commons/${ASM_VERSION}/asm-commons-${ASM_VERSION}.jar \
+    ${KARAF_HOME}/system/org/ow2/asm/asm-commons/${ASM_VERSION}/asm-commons-${ASM_VERSION}.jar
+
+# ---- Configure Karaf to install our features on boot ----
+
+# Add all three feature repositories and add demo feature to boot list
 RUN sed -i \
-    '/^featuresRepositories/s|$|,mvn:io.opentelemetry.osgi/opentelemetry-osgi-karaf-feature/'${PROJECT_VERSION}'/xml/features|' \
+    '/^featuresRepositories/s|$|,mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-karaf-feature/'${PROJECT_VERSION}'/xml/features,mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-integration-karaf-feature/'${PROJECT_VERSION}'/xml/features,mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-demo-karaf-feature/'${PROJECT_VERSION}'/xml/features|' \
     ${KARAF_HOME}/etc/org.apache.karaf.features.cfg && \
     sed -i \
     '/^featuresBoot/s|$|,opentelemetry-osgi-demo|' \

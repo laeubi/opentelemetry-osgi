@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.eclipse.osgi-technology.incubator</groupId>
+        <artifactId>opentelemetry-osgi-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>opentelemetry-osgi-integration-karaf-feature</artifactId>
+    <packaging>feature</packaging>
+    <name>OpenTelemetry OSGi Integration Karaf Feature</name>
+    <description>
+        Apache Karaf feature descriptor for deploying OpenTelemetry OSGi integration bundles.
+        Includes framework bridge, SCR introspection, and log bridge modules.
+    </description>
+
+    <properties>
+        <karaf.version>4.4.7</karaf.version>
+    </properties>
+
+    <dependencies>
+        <!-- Our integration bundle modules (reactor ordering) -->
+        <dependency>
+            <groupId>org.eclipse.osgi-technology.incubator</groupId>
+            <artifactId>opentelemetry-osgi-framework</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.osgi-technology.incubator</groupId>
+            <artifactId>opentelemetry-osgi-scr</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.osgi-technology.incubator</groupId>
+            <artifactId>opentelemetry-osgi-log</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- This is a Karaf feature descriptor, not an OSGi bundle -->
+            <plugin>
+                <groupId>biz.aQute.bnd</groupId>
+                <artifactId>bnd-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>generate-osgi-metadata</id>
+                        <phase>none</phase>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.karaf.tooling</groupId>
+                <artifactId>karaf-maven-plugin</artifactId>
+                <version>${karaf.version}</version>
+                <extensions>true</extensions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

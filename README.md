@@ -9,153 +9,30 @@ It provides a unified set of APIs, SDKs, and tools to instrument applications an
 
 OpenTelemetry defines three core **signals**:
 
-### Traces
+- **Traces** — End-to-end journey of a request through a distributed system, represented as spans with timing, attributes, and parent-child relationships
+- **Metrics** — Quantitative measurements (counters, histograms, gauges) about application behavior over time
+- **Logs** — Structured log records with automatic trace correlation via the [Log Bridge API](https://opentelemetry.io/docs/specs/otel/logs/bridge-api/)
 
-Traces represent the end-to-end journey of a request through a distributed system.
-A trace consists of one or more **spans**, each representing a unit of work (e.g. an HTTP request, a database query, or an OSGi service call).
-Spans have:
-
-- A name and duration (start/end timestamps)
-- Parent-child relationships forming a directed acyclic graph
-- Attributes (key-value pairs) describing the operation
-- Events (timestamped annotations within a span)
-- Status codes (OK, ERROR, UNSET)
-
-The [`Tracer`](https://opentelemetry.io/docs/specs/otel/trace/api/#tracer) API creates and manages spans, while **context propagation** ensures trace continuity across process and service boundaries.
-
-### Metrics
-
-Metrics capture quantitative measurements about application behavior over time.
-OpenTelemetry provides several metric **instruments**:
-
-| Instrument | Description | Example |
-|---|---|---|
-| **Counter** | Monotonically increasing sum | Request count |
-| **UpDownCounter** | Sum that can increase and decrease | Active connections |
-| **Histogram** | Distribution of values | Request latency |
-| **Gauge** | Instantaneous value (async callback) | CPU usage, memory |
-
-The [`Meter`](https://opentelemetry.io/docs/specs/otel/metrics/api/#meter) API creates instruments, and metric data is periodically exported to backends like Prometheus or OTLP collectors.
-
-### Logs
-
-The [Log Bridge API](https://opentelemetry.io/docs/specs/otel/logs/bridge-api/) is designed to bridge existing logging frameworks (SLF4J, JUL, Log4j) into OpenTelemetry.
-It is **not** a replacement logging API but provides:
-
-- Structured log records with severity levels
-- Automatic correlation with traces (trace ID, span ID)
-- Attribute-rich log data for better searchability
-
-### Architecture
+## Project Structure
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                    Application Code                       │
-│  (Instrumented with OpenTelemetry API)                   │
-├──────────────────────────────────────────────────────────┤
-│                   OpenTelemetry API                       │
-│  TracerProvider │ MeterProvider │ LoggerProvider          │
-├──────────────────────────────────────────────────────────┤
-│                   OpenTelemetry SDK                       │
-│  SpanProcessors │ MetricReaders │ LogRecordProcessors    │
-├──────────────────────────────────────────────────────────┤
-│                      Exporters                            │
-│  OTLP │ Logging │ Zipkin │ Prometheus │ Custom           │
-└──────────────────────────────────────────────────────────┘
+opentelemetry-osgi/
+├── core/                    — Core runtime providing OpenTelemetry SDK as an OSGi service
+├── integrations/            — Bridges for OSGi subsystems (framework, SCR, log)
+├── demo/                    — Demonstration bundles showcasing the integration
+├── features/                — Apache Karaf feature descriptors for deployment
+├── incubator/               — Experimental modules (agent extension)
+├── docker/                  — Docker demo with full Grafana observability stack
+└── docker-compose.yml
 ```
 
-The API defines the interfaces that application code uses.
-The SDK provides the implementation including processing pipelines and exporters.
-This separation allows libraries to instrument against the API without coupling to a specific SDK.
-
-## Project Scope
-
-This project brings OpenTelemetry to the OSGi ecosystem through six modules:
-
-### `opentelemetry-osgi-runtime`
-
-An OSGi bundle that creates and configures an [`OpenTelemetrySdk`](https://github.com/open-telemetry/opentelemetry-java/blob/main/sdk/all/src/main/java/io/opentelemetry/sdk/OpenTelemetrySdk.java) instance and publishes it as an OSGi service implementing the [`OpenTelemetry`](https://github.com/open-telemetry/opentelemetry-java/blob/main/api/all/src/main/java/io/opentelemetry/api/OpenTelemetry.java) interface.
-
-Key features:
-
-- Managed as a Declarative Services (DS) component
-- Configurable via OSGi ConfigAdmin (service name, exporter type, resource attributes)
-- Enriches telemetry resources with OSGi framework metadata (vendor, version, UUID)
-- Proper lifecycle management (SDK shutdown on deactivation)
-- Supports reconfiguration without restart
-
-Configuration properties (PID `io.opentelemetry.osgi.runtime`):
-
-| Property | Default | Description |
+| Folder | Description | Details |
 |---|---|---|
-| `serviceName` | `osgi-application` | The `service.name` resource attribute |
-| `serviceVersion` | `0.1.0` | The `service.version` resource attribute |
-| `serviceNamespace` | (empty) | Optional `service.namespace` |
-| `exporterType` | `logging` | Exporter type (currently `logging`) |
-| `additionalResourceAttributes` | (empty) | Extra attributes as `key=value` pairs |
-
-### `opentelemetry-osgi-core`
-
-Bridges the OSGi core framework into OpenTelemetry.
-This module exposes bundle and service state as telemetry signals using the OSGi framework APIs directly:
-
-- **`FrameworkMetricsComponent`** — Registers async gauges for total bundle count, active bundles, service count, and per-state bundle distribution
-- **`FrameworkEventComponent`** — Listens to `BundleEvent` and `ServiceEvent` and creates spans for each lifecycle change (install, start, stop, register, unregister) with rich attributes
-- **`BundleInventoryComponent`** — Live bundle inventory: emits a full snapshot at activation, then a log record for every bundle lifecycle change (install, start, stop, update, uninstall) via `SynchronousBundleListener`
-- **`ServiceInventoryComponent`** — Live service inventory: emits a full snapshot at activation, then a log record for every service registration, unregistration, and property modification — includes using-bundles info
-
-### `opentelemetry-osgi-client`
-
-A demo bundle that consumes the `OpenTelemetry` service via DS and demonstrates all three telemetry signals:
-
-- **`TracingDemoComponent`** — Creates basic spans, nested parent-child spans, span attributes/events, and error recording
-- **`MetricsDemoComponent`** — Demonstrates counters, up-down counters, histograms, and async gauges
-- **`LogBridgeDemoComponent`** — Emits structured log records with OSGi bundle inventory data
-- **`ContextPropagationDemoComponent`** — Shows context injection/extraction for cross-boundary trace propagation
-
-### `opentelemetry-osgi-agent`
-
-An OpenTelemetry Java Agent extension that uses ByteBuddy bytecode instrumentation to intercept OSGi framework operations.
-This module is independent from the runtime/client approach — it works with the [OpenTelemetry Java Agent](https://opentelemetry.io/docs/zero-code/java/agent/) and extends its auto-instrumentation capabilities via the [Agent Extension API](https://opentelemetry.io/docs/zero-code/java/agent/api/).
-
-The extension intercepts standard OSGi interfaces (not vendor classes), making it vendor-agnostic (Felix, Equinox, Knopflerfish, etc.):
-
-- **`OsgiInstrumentationModule`** — SPI entry point; only activates when `org.osgi.framework.launch.Framework` is on the classloader
-- **`FrameworkInstrumentation`** — Intercepts `Framework.init()` to capture the system BundleContext and register framework-level gauges (bundle count, active bundles, service count, resolved bundles)
-- **`BundleLifecycleInstrumentation`** — Traces `Bundle.start()`, `stop()`, `update()`, `uninstall()` as spans with bundle attributes; logs full bundle inventory after system bundle start
-- **`BundleActivatorInstrumentation`** — Traces `BundleActivator.start()` and `stop()` as child spans within the bundle lifecycle, showing activator execution time
-- **`BundleContextInstrumentation`** — Traces `BundleContext.registerService()` and `installBundle()` with service/location attributes
-- **`OsgiSingletons`** — Static helper providing `Tracer`/`Meter`/`Logger` via `GlobalOpenTelemetry.get()` and managing framework context storage
-
-### `opentelemetry-osgi-scr`
-
-Bridges the OSGi [Service Component Runtime (SCR) Introspection API](https://docs.osgi.org/specification/osgi.cmpn/8.0.0/service.component.html#service.component-introspection) into OpenTelemetry.
-Uses `ServiceComponentRuntime` to inspect every Declarative Services component and expose its state as telemetry:
-
-- **`ScrMetricsComponent`** — Registers async gauges for total component count, per-state distribution (active, satisfied, unsatisfied), active component count, and satisfied/unsatisfied service references
-- **`ScrInventoryComponent`** — Emits structured log records for every DS component configuration at startup, including properties, references, and state
-- **`ScrHealthCheckComponent`** — Runs a periodic (30s) trace that highlights non-active components with error details, unsatisfied references, and failure information
-
-### `opentelemetry-osgi-log`
-
-Bridges the OSGi [Log Service](https://docs.osgi.org/specification/osgi.core/8.0.0/service.log.html) into OpenTelemetry.
-Registers a `LogListener` with the `LogReaderService` to capture all log entries produced by bundles:
-
-- **`LogBridgeComponent`** — Forwards every `LogEntry` as an OpenTelemetry log record with mapped severity, plus attributes for bundle info, service reference, logger name, thread, source location, and exceptions
-- **`LogMetricsComponent`** — Counts log entries as OpenTelemetry metrics, grouped by log level and bundle (with a dedicated error counter)
-
-### `opentelemetry-osgi-karaf-feature`
-
-[Apache Karaf](https://karaf.apache.org/) feature descriptor for easy deployment into a Karaf container.
-Uses Karaf's `wrap:` protocol to turn the non-OSGi OpenTelemetry SDK JARs into proper OSGi bundles — no system-packages hack or manual wrapping needed.
-
-Provides three installable features:
-
-- **`opentelemetry-deps`** — All 14 OpenTelemetry SDK JARs wrapped as OSGi bundles (reusable by other projects)
-- **`opentelemetry-osgi`** — Integration bundles (runtime, core, scr, log) + OTel deps + SCR feature + default configuration
-- **`opentelemetry-osgi-demo`** — Adds the demo client module for generating sample telemetry
-
-Includes an example `io.opentelemetry.osgi.runtime.cfg` configuration file.
+| [`core/`](core/README.md) | OpenTelemetry SDK runtime as an OSGi service | [Read more →](core/README.md) |
+| [`integrations/`](integrations/README.md) | Framework, SCR, and Log Service bridges to OpenTelemetry | [Read more →](integrations/README.md) |
+| [`demo/`](demo/README.md) | Demo bundle generating sample traces, metrics, and logs | [Read more →](demo/README.md) |
+| [`features/`](features/README.md) | Karaf features for runtime, integrations, and demo deployment | [Read more →](features/README.md) |
+| [`incubator/`](incubator/README.md) | Java Agent extension for bytecode-level OSGi instrumentation | [Read more →](incubator/README.md) |
 
 ## Prerequisites
 
@@ -168,69 +45,23 @@ Includes an example `io.opentelemetry.osgi.runtime.cfg` configuration file.
 mvn clean install
 ```
 
-This builds all eight modules including the Karaf feature descriptor.
-The agent extension module produces a plain JAR (no shading needed — all dependencies are provided by the javaagent at runtime).
+## Quick Start — Karaf Deployment
 
-## Usage
-
-### Karaf Deployment (Recommended)
-
-The easiest way to deploy into an OSGi container is via the Karaf feature.
-After building, install the feature in a running [Apache Karaf](https://karaf.apache.org/) container:
+After building, deploy into an [Apache Karaf](https://karaf.apache.org/) container:
 
 ```bash
-# Register the feature repository
-feature:repo-add mvn:io.opentelemetry.osgi/opentelemetry-osgi-karaf-feature/0.1.0-SNAPSHOT/xml/features
+# Add all feature repositories
+feature:repo-add mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-karaf-feature/0.1.0-SNAPSHOT/xml/features
+feature:repo-add mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-integration-karaf-feature/0.1.0-SNAPSHOT/xml/features
+feature:repo-add mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-demo-karaf-feature/0.1.0-SNAPSHOT/xml/features
 
-# Install the integration (wraps OTel JARs, deploys bundles, configures runtime)
-feature:install opentelemetry-osgi
-
-# Optionally install the demo client
+# Install the full demo (includes runtime + integrations + demo client)
 feature:install opentelemetry-osgi-demo
 ```
 
-The `opentelemetry-osgi` feature:
-- Wraps all OpenTelemetry SDK JARs as OSGi bundles via Karaf's `wrap:` protocol
-- Deploys the runtime, core, scr, and log bundles
-- Installs a default configuration (logging exporter)
-- Pulls in the `scr` feature for Declarative Services
+See [features/README.md](features/README.md) for more deployment options.
 
-To switch to OTLP export, edit `etc/io.opentelemetry.osgi.runtime.cfg`:
-
-```properties
-exporterType = otlp
-otlpEndpoint = http://localhost:4317
-```
-
-An example configuration file is included in the `opentelemetry-osgi-karaf-feature` module under `src/main/resources/`.
-
-Three features are available:
-
-| Feature | Description |
-|---|---|
-| `opentelemetry-deps` | OTel SDK wrapped as OSGi bundles (reusable by other projects) |
-| `opentelemetry-osgi` | Integration bundles + OTel deps + SCR + default config |
-| `opentelemetry-osgi-demo` | Adds the demo client module |
-
-### Manual OSGi Deployment
-
-Deploy `opentelemetry-osgi-runtime` and `opentelemetry-osgi-client` bundles into your OSGi container.
-The runtime bundle will automatically register an `OpenTelemetry` service, and the client bundle's demo components will activate and produce telemetry.
-Note: you must ensure all OpenTelemetry SDK packages are available (e.g., via system classpath or individually wrapped bundles).
-
-### Agent Extension Approach
-
-Use with the OpenTelemetry Java Agent:
-
-```bash
-java -javaagent:path/to/opentelemetry-javaagent.jar \
-     -Dotel.javaagent.extensions=path/to/opentelemetry-osgi-agent-0.1.0-SNAPSHOT.jar \
-     -jar your-osgi-application.jar
-```
-
-The agent extension will automatically detect the OSGi framework and begin instrumenting it.
-
-## Docker Demo (Quick Start)
+## Docker Demo
 
 The easiest way to see the integration in action is the Docker Compose demo.
 It spins up the full Grafana observability stack with a single command:
@@ -249,65 +80,26 @@ OTel Collector (Gateway)
        Grafana (UI + Explore + Dashboards)
 ```
 
-### Prerequisites
-
-- Docker and Docker Compose installed
-- Java 21 and Maven 3.9+ (for local builds)
-
-### Start the Demo
-
 ```bash
 # Build and start everything
 docker compose up --build -d
 
 # Watch the OSGi application logs
 docker compose logs -f osgi-app
+
+# Open Grafana at http://localhost:3000
+
+# Stop and clean up
+docker compose down -v
 ```
 
 ### Explore in Grafana
 
-Open [http://localhost:3000](http://localhost:3000) (no login required — anonymous admin is enabled).
+Open [http://localhost:3000](http://localhost:3000) (no login required).
 
-**Traces** — Go to *Explore → Tempo* and search for traces.
-You will see spans for OSGi lifecycle events like `osgi.bundle.started`, `osgi.service.registered`, and `osgi.scr.healthcheck`, each with attributes describing the bundle or service involved.
-
-**Metrics** — Go to *Explore → Prometheus* and query:
-- `osgi_framework_bundles` — Number of bundles by state
-- `osgi_framework_services` — Total registered services
-- `osgi_scr_components` — Declarative Services component states
-- `osgi_log_entries_total` — Log entries by level
-
-**Logs** — Go to *Explore → Loki* and browse log streams.
-You will see structured log records for bundle/service inventory snapshots, SCR component changes, forwarded OSGi Log Service entries, and demo client operations.
-
-### Architecture
-
-The demo uses [Apache Karaf](https://karaf.apache.org/) as the OSGi container.
-Our `opentelemetry-osgi-demo` Karaf feature is pre-installed and boots automatically.
-Karaf's `wrap:` protocol turns the non-OSGi OpenTelemetry SDK JARs into proper OSGi bundles.
-Apache Aries SPI Fly (dynamic weaving) enables cross-bundle `ServiceLoader` discovery required by the OTel SDK.
-
-On boot, the following components activate:
-- **`opentelemetry-osgi-runtime`** creates the OpenTelemetry SDK with OTLP export configured via environment variables
-- **`opentelemetry-osgi-core`** registers framework metrics, traces bundle/service lifecycle events, and logs bundle/service inventory snapshots
-- **`opentelemetry-osgi-client`** runs demo components that periodically generate traces, metrics, and logs
-- **`opentelemetry-osgi-scr`** inspects all DS components and publishes metrics/logs/traces for their states and health
-- **`opentelemetry-osgi-log`** captures OSGi Log Service entries and forwards them as OpenTelemetry log records and metrics
-
-### Stop the Demo
-
-```bash
-docker compose down -v
-```
-
-### Exposed Ports
-
-| Port | Service | URL |
-|---|---|---|
-| 3000 | Grafana | [http://localhost:3000](http://localhost:3000) |
-| 9090 | Prometheus | [http://localhost:9090](http://localhost:9090) |
-| 4317 | OTel Collector (gRPC) | — |
-| 4318 | OTel Collector (HTTP) | — |
+- **Traces** — *Explore → Tempo*: spans for `osgi.bundle.started`, `osgi.service.registered`, `osgi.scr.healthcheck`
+- **Metrics** — *Explore → Prometheus*: `osgi_framework_bundles`, `osgi_framework_services`, `osgi_scr_components`, `osgi_log_entries_total`
+- **Logs** — *Explore → Loki*: bundle/service inventory, SCR component state, forwarded OSGi log entries
 
 ## Technology Stack
 
@@ -318,7 +110,7 @@ docker compose down -v
 | OSGi Framework | R8 (1.10.0) | Module system |
 | OSGi Declarative Services | 1.5.1 | Component model |
 | bnd-maven-plugin | 7.1.0 | OSGi metadata generation |
-| Apache Karaf | 4.4.7 | OSGi container (Docker demo) |
+| Apache Karaf | 4.4.7 | OSGi container |
 | Apache Aries SPI Fly | 1.3.7 | Cross-bundle ServiceLoader support |
 | Grafana | 11.5.2 | Observability UI |
 | Grafana Tempo | 2.7.2 | Distributed tracing backend |

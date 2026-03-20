@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Apache Karaf feature descriptor for the OpenTelemetry OSGi Demo.
+
+    Installs the demo client bundle that periodically generates traces,
+    metrics, and logs for demonstration purposes. Depends on the
+    integrations feature which transitively pulls in the runtime.
+-->
+<features name="opentelemetry-osgi-demo-${project.version}"
+          xmlns="http://karaf.apache.org/xmlns/features/v1.6.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://karaf.apache.org/xmlns/features/v1.6.0
+                              http://karaf.apache.org/xmlns/features/v1.6.0">
+
+    <!--
+        Demo feature: adds the demo module that periodically generates
+        traces, metrics, and logs for demonstration purposes.
+        Depends on integrations which transitively brings in the runtime.
+    -->
+    <feature name="opentelemetry-osgi-demo" version="${project.version}"
+             description="OpenTelemetry OSGi Demo">
+        <feature version="${project.version}">opentelemetry-osgi-integrations</feature>
+        <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-demo/${project.version}</bundle>
+    </feature>
+
+</features>

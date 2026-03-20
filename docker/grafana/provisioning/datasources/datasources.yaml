@@ -30,7 +30,7 @@ datasources:
   - name: Prometheus
     type: prometheus
     access: proxy
-    url: http://prometheus:9090
+    url: http://prometheus:9080
     isDefault: true
     editable: true
 

@@ -35,7 +35,7 @@ exporters:
 
   # Metrics → Prometheus via remote write
   prometheusremotewrite:
-    endpoint: http://prometheus:9090/api/v1/write
+    endpoint: http://prometheus:9080/api/v1/write
     tls:
       insecure: true
 

@@ -5,7 +5,7 @@ This file contains instructions and context for AI agents working on this codeba
 ## Project Overview
 
 This is a Maven multi-module project integrating OpenTelemetry with OSGi.
-It contains six modules that serve different integration approaches.
+The project is organized into five top-level folders, each containing related modules.
 
 ## Repository Structure
 
@@ -20,51 +20,92 @@ opentelemetry-osgi/
 │   ├── prometheus.yml               # Prometheus config
 │   ├── loki.yaml                    # Grafana Loki config
 │   └── grafana/provisioning/        # Grafana auto-provisioned datasources
-├── opentelemetry-osgi-runtime/      # OSGi service providing OpenTelemetry SDK
-│   └── src/main/java/io/opentelemetry/osgi/runtime/
-│       ├── OpenTelemetryService.java        # DS component publishing OpenTelemetry
-│       └── OpenTelemetryConfiguration.java  # ConfigAdmin configuration annotation
-├── opentelemetry-osgi-core/         # Core framework bridge (bundles, services, events)
-│   └── src/main/java/io/opentelemetry/osgi/core/
-│       ├── FrameworkMetricsComponent.java    # Bundle/service count gauges
-│       ├── FrameworkEventComponent.java      # Bundle/service event tracing
-│       ├── BundleInventoryComponent.java     # Live bundle inventory (snapshot + changes)
-│       ├── ServiceInventoryComponent.java    # Live service inventory (snapshot + changes)
-│       ├── BundleStateUtil.java              # Bundle state name utility
-│       └── BundleInfo.java                   # Bundle state record
-├── opentelemetry-osgi-client/       # Demo bundle consuming OpenTelemetry service
-│   └── src/main/java/io/opentelemetry/osgi/client/
-│       ├── TracingDemoComponent.java              # Tracing demos
-│       ├── MetricsDemoComponent.java              # Metrics demos
-│       ├── LogBridgeDemoComponent.java            # Log bridge demos
-│       ├── ContextPropagationDemoComponent.java   # Context propagation demos
-│       └── DemoSchedulerComponent.java            # Periodic telemetry generator
-├── opentelemetry-osgi-agent/        # Java Agent extension (ByteBuddy instrumentation)
-│   └── src/main/java/io/opentelemetry/osgi/agent/
-│       ├── OsgiInstrumentationModule.java     # SPI entry point, classloader matcher
-│       ├── FrameworkInstrumentation.java       # Intercepts Framework.init() for context capture
-│       ├── BundleLifecycleInstrumentation.java # Traces Bundle.start/stop/update/uninstall
-│       ├── BundleActivatorInstrumentation.java # Traces BundleActivator.start/stop
-│       ├── BundleContextInstrumentation.java   # Traces registerService/installBundle
-│       └── OsgiSingletons.java                # Static Tracer/Meter/Logger + metrics registration
-├── opentelemetry-osgi-scr/          # SCR introspection → OpenTelemetry bridge
-│   └── src/main/java/io/opentelemetry/osgi/scr/
-│       ├── ScrMetricsComponent.java         # DS component state gauges
-│       ├── ScrInventoryComponent.java       # DS inventory as structured logs
-│       └── ScrHealthCheckComponent.java     # Periodic health trace for non-active components
-├── opentelemetry-osgi-log/          # OSGi Log Service → OpenTelemetry bridge
-│   └── src/main/java/io/opentelemetry/osgi/log/
-│       ├── LogBridgeComponent.java          # Forwards LogEntry to OTel logs
-│       └── LogMetricsComponent.java         # Log entry counters as OTel metrics
-├── opentelemetry-osgi-karaf-feature/# Karaf feature descriptor for easy deployment
-│   ├── src/main/feature/
-│   │   └── feature.xml                      # Feature descriptor (3 features: deps, osgi, demo)
-│   └── src/main/resources/
-│       └── io.opentelemetry.osgi.runtime.cfg # Example configuration file
+├── core/                            # Core runtime
+│   ├── pom.xml                      # Aggregator POM
+│   └── opentelemetry-osgi-runtime/  # OSGi service providing OpenTelemetry SDK
+│       └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/runtime/
+│           ├── OpenTelemetryService.java        # DS component publishing OpenTelemetry
+│           └── OpenTelemetryConfiguration.java  # ConfigAdmin configuration annotation
+├── integrations/                    # OSGi subsystem bridges
+│   ├── pom.xml                      # Aggregator POM
+│   ├── opentelemetry-osgi-framework/  # Framework bridge (bundles, services, events)
+│   │   └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/framework/
+│   │       ├── FrameworkMetricsComponent.java    # Bundle/service count gauges
+│   │       ├── FrameworkEventComponent.java      # Bundle/service event tracing
+│   │       ├── BundleInventoryComponent.java     # Live bundle inventory
+│   │       ├── ServiceInventoryComponent.java    # Live service inventory
+│   │       ├── BundleStateUtil.java              # Bundle state name utility
+│   │       └── BundleInfo.java                   # Bundle state record
+│   ├── opentelemetry-osgi-scr/      # SCR introspection → OpenTelemetry bridge
+│   │   └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/scr/
+│   │       ├── ScrMetricsComponent.java         # DS component state gauges
+│   │       ├── ScrInventoryComponent.java       # DS inventory as structured logs
+│   │       └── ScrHealthCheckComponent.java     # Periodic health trace
+│   └── opentelemetry-osgi-log/      # OSGi Log Service → OpenTelemetry bridge
+│       └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/log/
+│           ├── LogBridgeComponent.java          # Forwards LogEntry to OTel logs
+│           └── LogMetricsComponent.java         # Log entry counters as OTel metrics
+├── demo/                            # Demonstration bundles
+│   ├── pom.xml                      # Aggregator POM
+│   └── opentelemetry-osgi-demo/     # Demo bundle consuming OpenTelemetry service
+│       └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/demo/
+│           ├── TracingDemoComponent.java              # Tracing demos
+│           ├── MetricsDemoComponent.java              # Metrics demos
+│           ├── LogBridgeDemoComponent.java            # Log bridge demos
+│           ├── ContextPropagationDemoComponent.java   # Context propagation demos
+│           └── DemoSchedulerComponent.java            # Periodic telemetry generator
+├── features/                        # Karaf feature descriptors
+│   ├── pom.xml                      # Aggregator POM
+│   ├── opentelemetry-osgi-karaf-feature/              # Runtime + OTel deps feature
+│   │   ├── src/main/feature/feature.xml               # opentelemetry-deps + opentelemetry-osgi
+│   │   └── src/main/resources/
+│   │       └── org.eclipse.osgi.technology.incubator.opentelemetry.runtime.cfg
+│   ├── opentelemetry-osgi-integration-karaf-feature/  # Integration bundles feature
+│   │   └── src/main/feature/feature.xml               # opentelemetry-osgi-integrations
+│   └── opentelemetry-osgi-demo-karaf-feature/         # Demo feature
+│       └── src/main/feature/feature.xml               # opentelemetry-osgi-demo
+├── incubator/                       # Experimental modules
+│   ├── pom.xml                      # Aggregator POM
+│   └── opentelemetry-osgi-agent/    # Java Agent extension (ByteBuddy)
+│       └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/agent/
 ├── README.md
 ├── AGENTS.md                        # This file
 └── LICENSE                          # EPL-2.0
 ```
+
+## Maven Coordinates
+
+- **GroupId**: `org.eclipse.osgi-technology.incubator`
+- **Package namespace**: `org.eclipse.osgi.technology.incubator.opentelemetry`
+- **Parent artifactId**: `opentelemetry-osgi-parent`
+
+### Module Artifacts
+
+| Module | ArtifactId | Folder |
+|---|---|---|
+| Runtime | `opentelemetry-osgi-runtime` | `core/` |
+| Framework Bridge | `opentelemetry-osgi-framework` | `integrations/` |
+| SCR Bridge | `opentelemetry-osgi-scr` | `integrations/` |
+| Log Bridge | `opentelemetry-osgi-log` | `integrations/` |
+| Demo | `opentelemetry-osgi-demo` | `demo/` |
+| Runtime Feature | `opentelemetry-osgi-karaf-feature` | `features/` |
+| Integration Feature | `opentelemetry-osgi-integration-karaf-feature` | `features/` |
+| Demo Feature | `opentelemetry-osgi-demo-karaf-feature` | `features/` |
+| Agent Extension | `opentelemetry-osgi-agent` | `incubator/` |
+
+### Aggregator POMs
+
+Each subfolder has an aggregator POM that references the root parent:
+
+| Folder | ArtifactId |
+|---|---|
+| `core/` | `opentelemetry-osgi-core-parent` |
+| `integrations/` | `opentelemetry-osgi-integrations-parent` |
+| `demo/` | `opentelemetry-osgi-demo-parent` |
+| `features/` | `opentelemetry-osgi-features-parent` |
+| `incubator/` | `opentelemetry-osgi-incubator-parent` |
+
+All module POMs use `<relativePath>../../pom.xml</relativePath>` to reference the root parent directly.
 
 ## Build Commands
 
@@ -72,8 +113,8 @@ opentelemetry-osgi/
 # Full build
 mvn clean verify
 
-# Build a single module
-mvn clean verify -pl opentelemetry-osgi-runtime
+# Build a single module (use relative path)
+mvn clean verify -pl core/opentelemetry-osgi-runtime
 
 # Build with dependency resolution logging
 mvn clean verify -X
@@ -135,7 +176,7 @@ Grafana datasources are auto-provisioned from `docker/grafana/provisioning/datas
 
 ### OpenTelemetry
 
-- **API vs SDK**: Client bundles depend only on `opentelemetry-api`; only the runtime bundle depends on `opentelemetry-sdk`
+- **API vs SDK**: Integration and demo bundles depend only on `opentelemetry-api`; only the runtime bundle depends on `opentelemetry-sdk`
 - **OTLP export**: The runtime supports both `logging` and `otlp` exporter types. OTLP is auto-selected when `OTEL_EXPORTER_OTLP_ENDPOINT` env var is set.
 - **Sender**: Uses `opentelemetry-exporter-sender-jdk` (Java's built-in HttpClient) — no external HTTP library needed
 - **Instrumentation scopes**: Use fully qualified package names as instrumentation scope names
@@ -161,9 +202,52 @@ All versions are centralized in the parent POM properties:
 
 When updating OpenTelemetry version, update the `opentelemetry.version` property — all module dependencies are managed via the BOM.
 
+## Feature Architecture
+
+The project uses three separate Karaf feature modules, each producing its own feature descriptor:
+
+### opentelemetry-osgi-karaf-feature (Runtime)
+
+- Defines `opentelemetry-deps` (14 wrapped OTel SDK JARs + SPI Fly) and `opentelemetry-osgi` (runtime bundle + config)
+- Inline `<config>` element provides default configuration for PID `org.eclipse.osgi.technology.incubator.opentelemetry.runtime`
+- Example `.cfg` file in `src/main/resources/` for manual deployment to `${karaf.etc}/`
+
+### opentelemetry-osgi-integration-karaf-feature (Integrations)
+
+- Defines `opentelemetry-osgi-integrations` (framework + scr + log bundles)
+- Depends on `opentelemetry-osgi` feature
+
+### opentelemetry-osgi-demo-karaf-feature (Demo)
+
+- Defines `opentelemetry-osgi-demo` (demo bundle)
+- Depends on `opentelemetry-osgi-integrations` feature
+
+### Feature Dependency Graph
+
+```
+opentelemetry-osgi-demo
+  └── opentelemetry-osgi-integrations
+        └── opentelemetry-osgi
+              ├── opentelemetry-deps (14 wrapped OTel JARs + SPI Fly)
+              └── scr (Karaf built-in)
+```
+
+### Karaf Deployment
+
+```bash
+feature:repo-add mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-karaf-feature/0.1.0-SNAPSHOT/xml/features
+feature:repo-add mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-integration-karaf-feature/0.1.0-SNAPSHOT/xml/features
+feature:repo-add mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-demo-karaf-feature/0.1.0-SNAPSHOT/xml/features
+feature:install opentelemetry-osgi-demo
+```
+
+### Adding New OTel Dependencies
+
+When adding new OTel JARs, add a `<bundle>wrap:mvn:...</bundle>` entry to the `opentelemetry-deps` feature in `features/opentelemetry-osgi-karaf-feature/src/main/feature/feature.xml`.
+
 ## Agent Module Notes
 
-The agent module uses the OTel Java Agent Extension API with ByteBuddy bytecode instrumentation.
+The agent module (`incubator/opentelemetry-osgi-agent`) uses the OTel Java Agent Extension API with ByteBuddy bytecode instrumentation.
 It is **not** an OSGi bundle — it is a plain JAR loaded via `-Dotel.javaagent.extensions=`.
 
 ### Architecture
@@ -182,32 +266,15 @@ It is **not** an OSGi bundle — it is a plain JAR loaded via `-Dotel.javaagent.
 - **`Span.current()` in exit advice**: The scope from enter is still active, so `Span.current()` returns our span
 - **All dependencies are `provided` scope**: The javaagent supplies OTel API, SDK, and ByteBuddy at runtime
 
-### Dependencies
-
-| Dependency | Scope | Purpose |
-|---|---|---|
-| `opentelemetry-javaagent-extension-api` | provided | InstrumentationModule, TypeInstrumentation, AgentElementMatchers |
-| `byte-buddy` | provided | @Advice annotations, ElementMatchers |
-| `opentelemetry-api` | provided | GlobalOpenTelemetry, Tracer, Meter, Logger |
-| `org.osgi.framework` | provided | OSGi types referenced in advice code |
-
 ### Build Differences from OSGi Modules
 
 - bnd-maven-plugin is **skipped** (not an OSGi bundle)
 - maven-jar-plugin uses default manifest (not bnd-generated)
 - No shade plugin (no runtime dependencies to bundle)
 
-### Usage
+## Framework Module Notes
 
-```bash
-java -javaagent:opentelemetry-javaagent.jar \
-     -Dotel.javaagent.extensions=opentelemetry-osgi-agent-0.1.0-SNAPSHOT.jar \
-     -jar your-osgi-application.jar
-```
-
-## Core Module Notes
-
-The core module (`opentelemetry-osgi-core`) provides OSGi framework telemetry as proper DS components (complementary to the agent module which provides the same via bytecode instrumentation):
+The framework module (`integrations/opentelemetry-osgi-framework`) provides OSGi framework telemetry as proper DS components:
 
 - Uses `@Reference OpenTelemetry` and `BundleContext` (injected via `@Activate`) — no `FrameworkUtil.getBundle()` workaround
 - Registers as `BundleListener` and `ServiceListener` in `@Activate`, unregisters in `@Deactivate`
@@ -219,7 +286,7 @@ The core module (`opentelemetry-osgi-core`) provides OSGi framework telemetry as
 
 ## SCR Module Notes
 
-The SCR module uses the OSGi SCR Introspection API from `org.osgi.service.component.runtime`:
+The SCR module (`integrations/opentelemetry-osgi-scr`) uses the OSGi SCR Introspection API from `org.osgi.service.component.runtime`:
 
 - References `ServiceComponentRuntime` to enumerate all DS component descriptions and configurations
 - Uses `ComponentConfigurationDTO` state constants: `UNSATISFIED_CONFIGURATION=1`, `UNSATISFIED_REFERENCE=2`, `SATISFIED=4`, `ACTIVE=8`, `FAILED_ACTIVATION=16`
@@ -228,7 +295,7 @@ The SCR module uses the OSGi SCR Introspection API from `org.osgi.service.compon
 
 ## Log Module Notes
 
-The Log module uses the OSGi Log Service from `org.osgi.service.log`:
+The Log module (`integrations/opentelemetry-osgi-log`) uses the OSGi Log Service from `org.osgi.service.log`:
 
 - References `LogReaderService` and registers as a `LogListener` to capture real-time log entries
 - Maps `LogLevel` (AUDIT, ERROR, WARN, INFO, DEBUG, TRACE) to OpenTelemetry `Severity`
@@ -236,43 +303,18 @@ The Log module uses the OSGi Log Service from `org.osgi.service.log`:
 - `LogMetricsComponent` maintains counters by log level and a dedicated error counter by bundle name
 - Requires OSGi Log Service in the container (Karaf provides via Pax Logging; in standalone Felix add `org.apache.felix:org.apache.felix.log:1.3.0`)
 
-## Karaf Feature Module Notes
-
-The Karaf feature module (`opentelemetry-osgi-karaf-feature`) provides an Apache Karaf feature descriptor:
-
-- Uses `<packaging>feature</packaging>` with `karaf-maven-plugin` 4.4.7
-- Feature descriptor at `src/main/feature/feature.xml` — properties like `${project.version}` and `${opentelemetry.version}` are interpolated by the plugin
-- bnd-maven-plugin is skipped (not an OSGi bundle or JAR)
-- Three features defined in one feature repository:
-  - `opentelemetry-deps` — 14 OTel SDK JARs wrapped via `wrap:mvn:` protocol
-  - `opentelemetry-osgi` — integration bundles + depends on `scr` and `opentelemetry-deps`
-  - `opentelemetry-osgi-demo` — adds the demo client
-- All OTel JARs wrapped with `Import-Package=*;resolution:=optional&Export-Package=*` to avoid resolution failures from optional/transitive dependencies
-- Inline `<config>` element provides default configuration for the runtime PID `io.opentelemetry.osgi.runtime`
-- Example `.cfg` file in `src/main/resources/` for manual deployment to `${karaf.etc}/`
-- Depends on Karaf's built-in `scr` feature (provides Felix SCR / Declarative Services runtime)
-- Karaf also provides OSGi Log Service via Pax Logging (no extra bundles needed)
-
-### Karaf Deployment
-
-```bash
-feature:repo-add mvn:io.opentelemetry.osgi/opentelemetry-osgi-karaf-feature/0.1.0-SNAPSHOT/xml/features
-feature:install opentelemetry-osgi
-```
-
-### Adding New OTel Dependencies
-
-When adding new OTel JARs, add a `<bundle>wrap:mvn:...</bundle>` entry to the `opentelemetry-deps` feature in `feature.xml`.
-
 ## Common Pitfalls
 
 - **`package-info.java`**: The Javadoc comment must come before the `package` declaration — do not repeat the `package` statement
-- **OSGi scope**: OSGi dependencies must be `provided` scope in runtime/client modules (the framework provides them at runtime)
+- **OSGi scope**: OSGi dependencies must be `provided` scope in runtime/integration/demo modules (the framework provides them at runtime)
 - **bnd-maven-plugin + maven-jar-plugin**: Both are configured in the parent POM; the jar plugin reads the bnd-generated `MANIFEST.MF`. The agent and karaf-feature modules skip bnd.
-- **Non-bundle modules**: Agent (`<packaging>jar</packaging>` with bnd disabled) and karaf-feature (`<packaging>feature</packaging>`) are not OSGi bundles.
+- **Non-bundle modules**: Agent (`<packaging>jar</packaging>` with bnd disabled) and karaf-features (`<packaging>feature</packaging>`) are not OSGi bundles.
 - **OTel JARs are NOT OSGi bundles**: They lack `Bundle-SymbolicName` headers. In Karaf, they are wrapped via the `wrap:` protocol in the feature descriptor with SPI Fly headers.
 - **SPI Fly**: OpenTelemetry uses `ServiceLoader` internally. In OSGi, cross-bundle SPI requires Apache Aries SPI Fly. Add `SPI-Consumer=*` / `SPI-Provider=*` headers to wrapped bundles and depend on the `spifly` Karaf feature.
 - **OTLP exporter**: The runtime auto-detects OTLP mode from the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable — no config change needed
 - **Docker multi-stage build**: The `docker/Dockerfile` builds with Maven, then copies artifacts into Karaf's `system/` directory using Maven repository layout
 - **Karaf featuresBoot**: Pre-installed features are listed in `org.apache.karaf.features.cfg`; the Dockerfile adds the demo feature via `sed`
 - **bnd osgi.service requirements**: The `-dsannotations-options: norequirements` bnd setting is required to suppress `Require-Capability: osgi.service` headers that break Karaf's feature resolver
+- **Relative paths**: Module POMs use `<relativePath>../../pom.xml</relativePath>` since modules are two levels deep (e.g. `core/opentelemetry-osgi-runtime/pom.xml`)
+- **Three feature repos in Docker**: The Dockerfile registers all three feature repositories in `org.apache.karaf.features.cfg`
+- **Maven groupId path**: The new groupId `org.eclipse.osgi-technology.incubator` maps to `org/eclipse/osgi-technology/incubator/` in Maven repository layout (note: hyphen in path)
