@@ -8,6 +8,8 @@ package org.eclipse.osgi.technology.incubator.opentelemetry.runtime;
  */
 public @interface OpenTelemetryConfiguration {
 
+    String PID = "org.eclipse.osgi.technology.incubator.opentelemetry.runtime";
+
     String serviceName() default "osgi-application";
 
     String serviceVersion() default "0.1.0";

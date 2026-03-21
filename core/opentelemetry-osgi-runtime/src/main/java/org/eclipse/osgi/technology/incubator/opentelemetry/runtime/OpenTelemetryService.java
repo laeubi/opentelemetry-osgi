@@ -6,6 +6,7 @@ import java.util.logging.Logger;
 import org.osgi.framework.BundleContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.ConfigurationPolicy;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Modified;
 
@@ -48,12 +49,13 @@ import io.opentelemetry.sdk.trace.export.SpanExporter;
  */
 @Component(
     service = OpenTelemetry.class,
-    configurationPid = "org.eclipse.osgi.technology.incubator.opentelemetry.runtime",
-    immediate = true
+    configurationPid = OpenTelemetryConfiguration.PID,
+    immediate = true,
+    configurationPolicy = ConfigurationPolicy.REQUIRE
 )
 public class OpenTelemetryService implements OpenTelemetry {
 
-    private static final Logger LOG = Logger.getLogger(OpenTelemetryService.class.getName());
+	private static final Logger LOG = Logger.getLogger(OpenTelemetryService.class.getName());
 
     private volatile OpenTelemetrySdk sdk;
 
@@ -248,7 +250,7 @@ public class OpenTelemetryService implements OpenTelemetry {
         OpenTelemetrySdk current = sdk;
         if (current == null) {
             LOG.log(Level.WARNING, "OpenTelemetry SDK not yet initialized, returning noop");
-            return (OpenTelemetrySdk) OpenTelemetrySdk.builder().build();
+            return OpenTelemetrySdk.builder().build();
         }
         return current;
     }
