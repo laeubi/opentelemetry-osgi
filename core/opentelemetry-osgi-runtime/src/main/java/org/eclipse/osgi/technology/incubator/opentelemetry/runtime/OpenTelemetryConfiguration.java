@@ -16,7 +16,7 @@ public @interface OpenTelemetryConfiguration {
 
     String exporterType() default "logging";
 
-    String otlpEndpoint() default "http://localhost:4317";
+    String otlpEndpoint() default "http://localhost:4318";
 
     String[] additionalResourceAttributes() default {};
 }

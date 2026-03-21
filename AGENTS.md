@@ -151,10 +151,10 @@ The Dockerfile builds the Maven project, then copies the assembled distribution 
 Apache Aries SPI Fly (dynamic weaving) enables cross-bundle `ServiceLoader` discovery required by the OTel SDK.
 
 **Key environment variables** (set in `docker-compose.yml`):
-- `OTEL_EXPORTER_OTLP_ENDPOINT` — Triggers OTLP export mode in the runtime (default: `http://otel-collector:4317`)
+- `OTEL_EXPORTER_OTLP_ENDPOINT` — Triggers OTLP export mode in the runtime (default: `http://otel-collector:4318`)
 - `OTEL_SERVICE_NAME` — Overrides the `service.name` resource attribute
 
-**Data flow**: OSGi App → OTel Collector (OTLP/gRPC) → Tempo + Prometheus + Loki → Grafana
+**Data flow**: OSGi App → OTel Collector (OTLP/HTTP) → Tempo + Prometheus + Loki → Grafana
 
 When modifying the OTel Collector pipeline, edit `docker/otel-collector-config.yaml`.
 Grafana datasources are auto-provisioned from `docker/grafana/provisioning/datasources/datasources.yaml`.
@@ -181,7 +181,7 @@ Grafana datasources are auto-provisioned from `docker/grafana/provisioning/datas
 
 - **API vs SDK**: Integration and demo bundles depend only on `opentelemetry-api`; only the runtime bundle depends on `opentelemetry-sdk`
 - **OTLP export**: The runtime supports both `logging` and `otlp` exporter types. OTLP is auto-selected when `OTEL_EXPORTER_OTLP_ENDPOINT` env var is set.
-- **Sender**: Uses `opentelemetry-exporter-sender-jdk` (Java's built-in HttpClient) — no external HTTP library needed
+- **Sender**: Uses `opentelemetry-exporter-sender-jdk` (Java's built-in HttpClient) with OTLP/HTTP protocol — no gRPC or external HTTP library needed
 - **Instrumentation scopes**: Use fully qualified package names as instrumentation scope names
 - **BOM**: Dependency versions managed via `opentelemetry-bom` import in parent POM
 

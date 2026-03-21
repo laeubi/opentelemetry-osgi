@@ -67,7 +67,7 @@ It spins up the full Grafana observability stack with a single command:
 
 ```
 OSGi App (Karaf + our features)
-    │ OTLP/gRPC
+    │ OTLP/HTTP
     ▼
 OTel Collector (Gateway)
     │

@@ -16,9 +16,9 @@ import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.exporter.logging.LoggingMetricExporter;
 import io.opentelemetry.exporter.logging.LoggingSpanExporter;
 import io.opentelemetry.exporter.logging.SystemOutLogRecordExporter;
-import io.opentelemetry.exporter.otlp.logs.OtlpGrpcLogRecordExporter;
-import io.opentelemetry.exporter.otlp.metrics.OtlpGrpcMetricExporter;
-import io.opentelemetry.exporter.otlp.trace.OtlpGrpcSpanExporter;
+import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter;
+import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter;
+import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.logs.SdkLoggerProvider;
 import io.opentelemetry.sdk.logs.export.BatchLogRecordProcessor;
@@ -43,7 +43,7 @@ import io.opentelemetry.sdk.trace.export.SpanExporter;
  * Supported exporter types:
  * <ul>
  *   <li>{@code logging} (default) — exports telemetry to stdout via java.util.logging</li>
- *   <li>{@code otlp} — exports telemetry via OTLP/gRPC to a collector endpoint</li>
+ *   <li>{@code otlp} — exports telemetry via OTLP/HTTP to a collector endpoint</li>
  * </ul>
  */
 @Component(
@@ -104,8 +104,8 @@ public class OpenTelemetryService implements OpenTelemetry {
             OpenTelemetryConfiguration config) {
         SpanExporter spanExporter;
         if ("otlp".equals(exporterType)) {
-            spanExporter = OtlpGrpcSpanExporter.builder()
-                .setEndpoint(config.otlpEndpoint())
+            spanExporter = OtlpHttpSpanExporter.builder()
+                .setEndpoint(config.otlpEndpoint() + "/v1/traces")
                 .build();
             return SdkTracerProvider.builder()
                 .setResource(resource)
@@ -123,8 +123,8 @@ public class OpenTelemetryService implements OpenTelemetry {
             OpenTelemetryConfiguration config) {
         MetricExporter metricExporter;
         if ("otlp".equals(exporterType)) {
-            metricExporter = OtlpGrpcMetricExporter.builder()
-                .setEndpoint(config.otlpEndpoint())
+            metricExporter = OtlpHttpMetricExporter.builder()
+                .setEndpoint(config.otlpEndpoint() + "/v1/metrics")
                 .build();
         } else {
             metricExporter = LoggingMetricExporter.create();
@@ -139,8 +139,8 @@ public class OpenTelemetryService implements OpenTelemetry {
             OpenTelemetryConfiguration config) {
         LogRecordExporter logExporter;
         if ("otlp".equals(exporterType)) {
-            logExporter = OtlpGrpcLogRecordExporter.builder()
-                .setEndpoint(config.otlpEndpoint())
+            logExporter = OtlpHttpLogRecordExporter.builder()
+                .setEndpoint(config.otlpEndpoint() + "/v1/logs")
                 .build();
             return SdkLoggerProvider.builder()
                 .setResource(resource)

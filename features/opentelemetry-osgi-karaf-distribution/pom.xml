@@ -101,7 +101,6 @@
                 <extensions>true</extensions>
                 <configuration>
                     <javase>21</javase>
-                    <!-- Karaf standard features (boot stage) -->
                     <bootFeatures>
                         <feature>wrap</feature>
                         <feature>bundle</feature>
@@ -113,13 +112,13 @@
                         <feature>jaas</feature>
                         <feature>kar</feature>
                         <feature>log</feature>
-                        <feature>management</feature>
                         <feature>package</feature>
                         <feature>service</feature>
                         <feature>shell</feature>
                         <feature>ssh</feature>
                         <feature>system</feature>
                         <feature>eventadmin</feature>
+                        <feature>management</feature>
                         <!-- Our features -->
                         <feature>opentelemetry-osgi-demo</feature>
                     </bootFeatures>
