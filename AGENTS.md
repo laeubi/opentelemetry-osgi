@@ -71,6 +71,8 @@ opentelemetry-osgi/
 │   ├── pom.xml                      # Aggregator POM
 │   └── opentelemetry-osgi-agent/    # Java Agent extension (ByteBuddy)
 │       └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/agent/
+├── doc/
+│   └── images/                      # Screenshots for README (generated via Grafana Image Renderer)
 ├── README.md
 ├── AGENTS.md                        # This file
 └── LICENSE                          # EPL-2.0
@@ -151,13 +153,56 @@ The Dockerfile builds the Maven project, then copies the assembled distribution 
 Apache Aries SPI Fly (dynamic weaving) enables cross-bundle `ServiceLoader` discovery required by the OTel SDK.
 
 **Key environment variables** (set in `docker-compose.yml`):
-- `OTEL_EXPORTER_OTLP_ENDPOINT` — Triggers OTLP export mode in the runtime (default: `http://otel-collector:4318`)
+- `OTEL_EXPORTER_OTLP_ENDPOINT` — Triggers OTLP export mode **and** sets the collector endpoint (default: `http://otel-collector:4318`)
 - `OTEL_SERVICE_NAME` — Overrides the `service.name` resource attribute
 
 **Data flow**: OSGi App → OTel Collector (OTLP/HTTP) → Tempo + Prometheus + Loki → Grafana
 
 When modifying the OTel Collector pipeline, edit `docker/otel-collector-config.yaml`.
 Grafana datasources are auto-provisioned from `docker/grafana/provisioning/datasources/datasources.yaml`.
+Grafana dashboards are auto-provisioned from `docker/grafana/provisioning/dashboards/`.
+
+### Grafana Image Renderer
+
+The Docker Compose stack includes a Grafana Image Renderer service (`grafana/grafana-image-renderer:3.12.1`).
+This enables server-side PNG rendering of dashboards and panels via the Grafana `/render` API.
+
+**Taking screenshots** (requires the Docker Compose stack to be running):
+
+```bash
+# Full dashboard screenshot
+curl -o screenshot.png \
+  "http://localhost:3000/render/d/osgi-overview/osgi-observability-overview?orgId=1&from=now-30m&to=now&width=1920&height=2800&kiosk"
+
+# Cropped top section only (Framework row)
+curl -o framework.png \
+  "http://localhost:3000/render/d/osgi-overview/osgi-observability-overview?orgId=1&from=now-30m&to=now&width=1920&height=420&kiosk"
+
+# Single panel by panelId (find panelId in the dashboard JSON)
+curl -o panel.png \
+  "http://localhost:3000/render/d-solo/osgi-overview/osgi-observability-overview?orgId=1&panelId=2&from=now-30m&to=now&width=800&height=400"
+```
+
+**Render URL parameters:**
+- `width` / `height` — output image dimensions in pixels
+- `kiosk` — hides the Grafana navigation chrome
+- `from` / `to` — time range (e.g., `now-30m`, `now-1h`)
+- `theme=light` — use the light theme (default is dark)
+
+Screenshots for the README are stored in `doc/images/` and should be regenerated when the dashboard changes.
+
+### Grafana Provisioning Structure
+
+```
+docker/grafana/provisioning/
+├── datasources/
+│   └── datasources.yaml          # Tempo, Prometheus, Loki (with stable UIDs)
+└── dashboards/
+    ├── dashboards.yaml           # Dashboard provider config
+    └── osgi-overview.json        # OSGi Observability Overview dashboard
+```
+
+Datasources use explicit `uid` values (`tempo`, `prometheus`, `loki`) so that dashboard JSON and cross-datasource links remain stable across fresh deployments.
 
 ## Code Conventions
 
@@ -326,7 +371,9 @@ The Log module (`integrations/opentelemetry-osgi-log`) uses the OSGi Log Service
 - **Non-bundle modules**: Agent (`<packaging>jar</packaging>` with bnd disabled) and karaf-features (`<packaging>feature</packaging>`) are not OSGi bundles.
 - **OTel JARs are NOT OSGi bundles**: They lack `Bundle-SymbolicName` headers. In Karaf, they are wrapped via the `wrap:` protocol in the feature descriptor with SPI Fly headers.
 - **SPI Fly**: OpenTelemetry uses `ServiceLoader` internally. In OSGi, cross-bundle SPI requires Apache Aries SPI Fly. Add `SPI-Consumer=*` / `SPI-Provider=*` headers to wrapped bundles and depend on the `spifly` Karaf feature.
-- **OTLP exporter**: The runtime auto-detects OTLP mode from the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable — no config change needed
+- **OTLP exporter**: The runtime auto-detects OTLP mode from the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable and uses its value as the endpoint. When not set, falls back to `config.otlpEndpoint()` (default `http://localhost:4318`).
+- **Prometheus listen port**: Prometheus is configured to listen on port 9080 (`--web.listen-address=0.0.0.0:9080`) instead of the default 9090, matching the OTel Collector's remote-write target and the docker-compose port mapping.
+- **Grafana datasource UIDs**: Datasources use explicit stable UIDs (`tempo`, `prometheus`, `loki`) in the provisioning config. Always reference these UIDs in dashboard JSON — do not use auto-generated UIDs.
 - **Docker uses pre-built distribution**: The `docker/Dockerfile` builds with Maven, then copies the assembled Karaf distribution from `features/opentelemetry-osgi-karaf-distribution/target/assembly` — all features, bundles, and config are pre-embedded
 - **No sed hacking in Docker**: The karaf-assembly plugin handles `featuresBoot` and `featuresRepositories` configuration — no manual `sed` manipulation needed
 - **bnd osgi.service requirements**: The `-dsannotations-options: norequirements` bnd setting is required to suppress `Require-Capability: osgi.service` headers that break Karaf's feature resolver

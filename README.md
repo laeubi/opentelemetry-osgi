@@ -92,13 +92,32 @@ docker compose logs -f osgi-app
 docker compose down -v
 ```
 
+### Pre-built Dashboard
+
+Open [http://localhost:3000](http://localhost:3000) (no login required) and navigate to **Dashboards → OpenTelemetry OSGi → OSGi Observability Overview**.
+
+The dashboard provides a comprehensive view of the running OSGi runtime:
+
+![OSGi Observability Overview Dashboard](doc/images/grafana-dashboard-overview.png)
+
+**Dashboard sections:**
+
+| Section | What it shows |
+|---|---|
+| 🧩 OSGi Framework | Bundle count, active bundles, services, bundle state distribution (pie chart + time series) |
+| ⚙️ Declarative Services | Component count, active components, satisfied/unsatisfied references, SCR state distribution |
+| 📋 Log Service | Log entries by level (INFO, ERROR, …), errors by bundle |
+| 🚀 Demo Operations | Operation rate by type, average duration, top operations, active tasks, JVM memory |
+| 🔍 Recent Traces | Trace table with IDs, timestamps, span names (`osgi.scr.healthcheck`, `osgi.bundle.resolved`, …) |
+| 📝 Live Logs | Streaming structured logs from Loki |
+
 ### Explore in Grafana
 
-Open [http://localhost:3000](http://localhost:3000) (no login required).
+Use the **Explore** view (compass icon in the sidebar) to query each backend directly:
 
-- **Traces** — *Explore → Tempo*: spans for `osgi.bundle.started`, `osgi.service.registered`, `osgi.scr.healthcheck`
-- **Metrics** — *Explore → Prometheus*: `osgi_framework_bundles`, `osgi_framework_services`, `osgi_scr_components`, `osgi_log_entries_total`
-- **Logs** — *Explore → Loki*: bundle/service inventory, SCR component state, forwarded OSGi log entries
+- **Traces** — select the *Tempo* datasource: trace names include `osgi.bundle.resolve`, `osgi.bundle.refresh`, `osgi.service.bind`, `osgi.service.lookup`, `osgi.scr.healthcheck`, `osgi.config.update`, `osgi.package.wire`
+- **Metrics** — select the *Prometheus* datasource: `osgi_bundle_count`, `osgi_bundle_active`, `osgi_bundle_states`, `osgi_service_count`, `osgi_scr_component_count`, `osgi_scr_component_states`, `osgi_log_entries_total`, `osgi_demo_operations_total`
+- **Logs** — select the *Loki* datasource: query `{service_name="osgi-demo"}` for bundle/service inventory, SCR component state, and forwarded OSGi log entries
 
 ## Technology Stack
 
@@ -112,6 +131,7 @@ Open [http://localhost:3000](http://localhost:3000) (no login required).
 | Apache Karaf | 4.4.7 | OSGi container |
 | Apache Aries SPI Fly | 1.3.7 | Cross-bundle ServiceLoader support |
 | Grafana | 11.5.2 | Observability UI |
+| Grafana Image Renderer | 3.12.1 | Dashboard screenshot rendering |
 | Grafana Tempo | 2.7.2 | Distributed tracing backend |
 | Prometheus | 3.2.1 | Metrics backend |
 | Grafana Loki | 3.4.2 | Log aggregation backend |

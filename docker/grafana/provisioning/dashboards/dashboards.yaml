@@ -1,0 +1,19 @@
+# ==============================================================================
+# Grafana Dashboard Provisioning
+#
+# Automatically loads dashboards from the dashboards directory
+# when Grafana starts for the first time.
+# ==============================================================================
+
+apiVersion: 1
+
+providers:
+  - name: OpenTelemetry OSGi
+    orgId: 1
+    folder: OpenTelemetry OSGi
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

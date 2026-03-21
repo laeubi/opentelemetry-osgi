@@ -93,6 +93,9 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_RENDERING_SERVER_URL=http://renderer:8081/render
+      - GF_RENDERING_CALLBACK_URL=http://grafana:3000/
+      - GF_LOG_FILTERS=rendering:debug
     volumes:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana-data:/var/lib/grafana
@@ -102,6 +105,21 @@ services:
       - tempo
       - prometheus
       - loki
+      - renderer
+    networks:
+      - otel-network
+
+  # ==========================================================================
+  # Grafana Image Renderer (headless Chromium for PNG rendering)
+  # Enables /render API for dashboard and panel screenshots
+  # ==========================================================================
+  renderer:
+    image: grafana/grafana-image-renderer:3.12.1
+    container_name: renderer
+    environment:
+      - ENABLE_METRICS=true
+      - RENDERING_MODE=default
+      - RENDERING_CLUSTERING_MAX_CONCURRENCY=5
     networks:
       - otel-network
 
