@@ -47,5 +47,12 @@
             <artifactId>org.osgi.annotation.bundle</artifactId>
             <scope>provided</scope>
         </dependency>
+
+        <!-- Servlet API (provided by Pax Web / Karaf HTTP) -->
+        <dependency>
+            <groupId>javax.servlet</groupId>
+            <artifactId>javax.servlet-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 </project>

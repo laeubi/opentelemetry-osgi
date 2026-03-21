@@ -34,8 +34,8 @@ The runtime is configured via OSGi ConfigAdmin with PID `org.eclipse.osgi.techno
 |---|---|---|
 | `serviceName` | `osgi-application` | Service name in telemetry data |
 | `serviceVersion` | `0.1.0` | Service version resource attribute |
-| `exporterType` | `logging` | `logging` (stdout) or `otlp` (OTLP/gRPC) |
-| `otlpEndpoint` | `http://localhost:4317` | OTLP collector endpoint |
+| `exporterType` | `logging` | `logging` (stdout) or `otlp` (OTLP/HTTP) |
+| `otlpEndpoint` | `http://localhost:4318` | OTLP/HTTP collector endpoint |
 | `additionalResourceAttributes` | (empty) | Extra key=value resource attributes |
 
 When the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable is set, the runtime automatically switches to OTLP export mode.

@@ -39,6 +39,11 @@
         <bundle>mvn:org.apache.felix/org.apache.felix.healthcheck.generalchecks/${felix.healthcheck.generalchecks.version}</bundle>
         <!-- Health Check: exposes health check results as telemetry -->
         <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-healthcheck/${project.version}</bundle>
+
+        <!-- Weaving Hook: OSGi-native bytecode instrumentation infrastructure (ASM embedded) -->
+        <bundle start-level="20">mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-weaving/${project.version}</bundle>
+        <!-- Servlet Weaver: fragment attaching to weaving host for HTTP servlet instrumentation -->
+        <bundle start-level="20">mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-weaver-servlet/${project.version}</bundle>
     </feature>
 
 </features>

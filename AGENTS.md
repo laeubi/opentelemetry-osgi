@@ -5,7 +5,7 @@ This file contains instructions and context for AI agents working on this codeba
 ## Project Overview
 
 This is a Maven multi-module project integrating OpenTelemetry with OSGi.
-The project is organized into five top-level folders, each containing related modules.
+The project is organized into six top-level folders, each containing related modules.
 
 ## Repository Structure
 
@@ -64,7 +64,9 @@ opentelemetry-osgi/
 │           ├── MetricsDemoComponent.java              # Metrics demos
 │           ├── LogBridgeDemoComponent.java            # Log bridge demos
 │           ├── ContextPropagationDemoComponent.java   # Context propagation demos
-│           └── DemoSchedulerComponent.java            # Periodic telemetry generator
+│           ├── DemoSchedulerComponent.java            # Periodic telemetry generator
+│           ├── HttpDemoServlet.java                   # Demo servlet at /demo/*
+│           └── HttpTrafficGeneratorComponent.java     # Periodic HTTP traffic generator
 ├── features/                        # Karaf feature descriptors
 │   ├── pom.xml                      # Aggregator POM
 │   ├── opentelemetry-osgi-karaf-feature/              # Runtime + OTel deps feature
@@ -82,6 +84,23 @@ opentelemetry-osgi/
 │   ├── pom.xml                      # Aggregator POM
 │   └── opentelemetry-osgi-agent/    # Java Agent extension (ByteBuddy)
 │       └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/agent/
+├── weaving/                         # OSGi WeavingHook based bytecode instrumentation
+│   ├── pom.xml                      # Aggregator POM
+│   ├── opentelemetry-osgi-weaving/  # Host bundle: WeavingHook, WeaverRegistry, ASM embedded
+│   │   └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/weaving/
+│   │       ├── Weaver.java                      # SPI interface for weaver implementations
+│   │       ├── WeaverRegistry.java              # ServiceLoader-based weaver discovery
+│   │       ├── OpenTelemetryWeavingHook.java    # OSGi WeavingHook delegating to weavers
+│   │       ├── WeavingHookActivator.java        # BundleActivator (not DS)
+│   │       └── OpenTelemetryProxy.java          # Graceful proxy with noop fallback
+│   └── opentelemetry-osgi-weaver-servlet/  # Fragment: HttpServlet instrumentation
+│       ├── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/weaver/servlet/
+│       │   ├── ServletWeaver.java                   # Weaver targeting HttpServlet subclasses
+│       │   ├── ServletClassVisitor.java             # ASM ClassVisitor for servlet methods
+│       │   ├── ServletServiceMethodVisitor.java     # ASM AdviceAdapter for bytecode injection
+│       │   └── ServletInstrumentationHelper.java    # Static helpers called from woven code
+│       └── src/main/resources/META-INF/services/
+│           └── ...opentelemetry.weaving.Weaver      # Java SPI registration
 ├── doc/
 │   └── images/                      # Screenshots for README (generated via Grafana Image Renderer)
 ├── README.md
@@ -111,6 +130,8 @@ opentelemetry-osgi/
 | Demo Feature | `opentelemetry-osgi-demo-karaf-feature` | `features/` |
 | Karaf Distribution | `opentelemetry-osgi-karaf-distribution` | `features/` |
 | Agent Extension | `opentelemetry-osgi-agent` | `incubator/` |
+| Weaving Host | `opentelemetry-osgi-weaving` | `weaving/` |
+| Servlet Weaver | `opentelemetry-osgi-weaver-servlet` | `weaving/` |
 
 ### Aggregator POMs
 
@@ -123,6 +144,7 @@ Each subfolder has an aggregator POM that references the root parent:
 | `demo/` | `opentelemetry-osgi-demo-parent` |
 | `features/` | `opentelemetry-osgi-features-parent` |
 | `incubator/` | `opentelemetry-osgi-incubator-parent` |
+| `weaving/` | `opentelemetry-osgi-weaving-parent` |
 
 All module POMs use `<relativePath>../../pom.xml</relativePath>` to reference the root parent directly.
 
@@ -279,7 +301,8 @@ The project uses three separate Karaf feature modules, each producing its own fe
 
 ### opentelemetry-osgi-integration-karaf-feature (Integrations)
 
-- Defines `opentelemetry-osgi-integrations` (framework + scr + log bundles)
+- Defines `opentelemetry-osgi-integrations` (framework + scr + log + healthcheck + cm + weaving bundles)
+- Weaving bundles are installed at start-level 20 to activate before application bundles
 - Depends on `opentelemetry-osgi` feature
 
 ### opentelemetry-osgi-demo-karaf-feature (Demo)
@@ -406,6 +429,50 @@ The Config Admin module (`integrations/opentelemetry-osgi-cm`) uses the OSGi Con
 - `ConfigAdminInventoryComponent` queries `configAdmin.listConfigurations(null)` for all configs — returns `null` (not empty array) when none exist
 - Inventory log records include: PID, factory PID, bundle location, property count, and property keys (but not values, for security)
 
+## Weaving Module Notes
+
+The weaving module (`weaving/`) uses the [OSGi WeavingHook](https://docs.osgi.org/specification/osgi.core/8.0.0/framework.weavinghook.html) for lightweight bytecode instrumentation at class-load time.
+It consists of a host bundle and fragment bundles discovered via Java SPI.
+
+### Architecture
+
+- **Host bundle** (`opentelemetry-osgi-weaving`): Contains the `WeavingHook`, `BundleActivator`, `ServiceTracker`-based `OpenTelemetryProxy`, and `WeaverRegistry` (Java SPI discovery)
+- **Fragment bundles** (e.g., `opentelemetry-osgi-weaver-servlet`): Attach to the host via `Fragment-Host`, providing `Weaver` implementations registered in `META-INF/services`
+- Fragments share the host's classloader, so plain `ServiceLoader.load(Weaver.class)` works without SPI Fly
+- ASM 9.7.1 is embedded in the host bundle via `Private-Package` (org.objectweb.asm.*) to avoid resolution ordering and classloader visibility issues
+
+### Key Design Decisions
+
+- **BundleActivator, not DS**: The WeavingHook must be active before DS component classes load — using DS would miss weaving those classes
+- **Fragment bundles for weavers**: Fragments share the host's classloader, enabling plain Java SPI without SPI Fly
+- **ASM embedded**: Avoiding a separate ASM bundle eliminates resolution ordering issues and ensures ASM classes are always visible to the weaving code
+- **Safe ClassWriter**: Uses `COMPUTE_FRAMES` with `getCommonSuperClass()` overridden to return `java/lang/Object` — the default implementation fails across OSGi classloader boundaries
+- **Infrastructure bundle exclusion**: Skips weaving for Felix, Karaf, Jetty, Pax, Aries, CXF, XBean, and Eclipse Equinox bundles to prevent instrumenting container internals
+- **OpenTelemetryProxy**: Uses `ServiceTracker` to gracefully handle the OpenTelemetry service not being available yet; falls back to noop tracers/meters
+- **Start-level 20**: Weaving bundles are installed at start-level 20 in the Karaf feature to ensure they activate before application bundles
+
+### Servlet Weaver Details
+
+- Instruments `javax.servlet.http.HttpServlet` subclasses (skips `javax.servlet.*` classes themselves)
+- Targets methods: `service`, `doGet`, `doPost`, `doPut`, `doDelete`, `doHead`, `doOptions`, `doTrace`
+- Creates `SERVER` spans with `http.method`, `http.url`, `http.status_code`, `http.servlet.class`, `http.query_string` attributes
+- Records `http.server.requests` counter and `http.server.duration` histogram metrics
+- `ServletInstrumentationHelper` provides static methods called from woven bytecode (`onServiceEnter`, `onServiceExit`, `onServiceError`)
+- The instrumentation scope is `org.eclipse.osgi.technology.incubator.opentelemetry.weaver.servlet`
+
+### Build Differences from DS Modules
+
+- Uses `Bundle-Activator` header instead of DS annotations
+- Host bundle: bnd `Private-Package` includes ASM classes; `Import-Package` uses optional resolution for OpenTelemetry API
+- Fragment bundle: bnd `Fragment-Host: opentelemetry-osgi-weaving` header; dependencies are `provided` scope (resolved via host)
+
+### Adding New Weavers
+
+1. Create a new module as a fragment bundle (`Fragment-Host: opentelemetry-osgi-weaving`)
+2. Implement the `Weaver` interface (`name()`, `canWeave()`, `weave()`)
+3. Register via `META-INF/services/org.eclipse.osgi.technology.incubator.opentelemetry.weaving.Weaver`
+4. Add the bundle to the integration feature descriptor at start-level 20
+
 ## Common Pitfalls
 
 - **`package-info.java`**: The Javadoc comment must come before the `package` declaration — do not repeat the `package` statement
@@ -426,3 +493,9 @@ The Config Admin module (`integrations/opentelemetry-osgi-cm`) uses the OSGi Con
 - **Felix HC general checks configurationPolicy**: Most general checks use `configurationPolicy=REQUIRE` — they will NOT activate without a `.cfg` file in `${karaf.etc}/`. Only `FrameworkStartCheck` has `OPTIONAL` policy. Factory checks (BundlesStartedCheck, DiskSpaceCheck) need `<PID>-<instance>.cfg` naming.
 - **ConfigurationEvent has no properties**: `ConfigurationEvent.getReference()` returns the CM `ServiceReference`, not the configuration's properties. To get property values, fetch via `ConfigurationAdmin.getConfiguration(pid)`.
 - **ConfigAdmin listConfigurations null**: `configAdmin.listConfigurations(null)` returns `null` when no configurations exist, not an empty array. Always null-check the result.
+- **Weaving hook activation order**: The weaving host bundle uses `BundleActivator` (not DS) because the `WeavingHook` must be registered before DS component classes load. Do not convert it to DS.
+- **Weaving ASM embedded**: ASM is included via `Private-Package` in the weaving host bundle. Do not add a separate ASM bundle — it would cause classloader visibility issues.
+- **Weaving fragment SPI**: Fragment bundles register weavers via `META-INF/services`, not OSGi service registry. This works because fragments share the host's classloader, making `ServiceLoader.load()` discover them without SPI Fly.
+- **Weaving COMPUTE_FRAMES**: The custom `ClassWriter` overrides `getCommonSuperClass()` to return `java/lang/Object`. The default ASM implementation calls `Class.forName()` which fails across OSGi classloader boundaries.
+- **Weaving start-level**: Weaving bundles must be at start-level 20 (before application bundles) in Karaf feature descriptors. Higher start-levels would cause application classes to load before the WeavingHook is registered.
+- **Weaving infrastructure exclusion**: The `OpenTelemetryWeavingHook` skips bundles from Felix, Karaf, Jetty, Pax, Aries, CXF, XBean, and Eclipse Equinox. When adding new infrastructure exclusions, update the `shouldSkipBundle()` method.

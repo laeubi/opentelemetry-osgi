@@ -13,6 +13,8 @@ services:
       - OTEL_SERVICE_NAME=osgi-demo
     depends_on:
       - otel-collector
+    ports:
+      - "8181:8181"
     networks:
       - otel-network
 

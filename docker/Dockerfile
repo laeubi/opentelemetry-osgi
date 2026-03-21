@@ -24,6 +24,8 @@ COPY integrations/pom.xml integrations/
 COPY integrations/opentelemetry-osgi-framework/pom.xml integrations/opentelemetry-osgi-framework/
 COPY integrations/opentelemetry-osgi-scr/pom.xml integrations/opentelemetry-osgi-scr/
 COPY integrations/opentelemetry-osgi-log/pom.xml integrations/opentelemetry-osgi-log/
+COPY integrations/opentelemetry-osgi-cm/pom.xml integrations/opentelemetry-osgi-cm/
+COPY integrations/opentelemetry-osgi-healthcheck/pom.xml integrations/opentelemetry-osgi-healthcheck/
 COPY demo/pom.xml demo/
 COPY demo/opentelemetry-osgi-demo/pom.xml demo/opentelemetry-osgi-demo/
 COPY features/pom.xml features/
@@ -33,6 +35,9 @@ COPY features/opentelemetry-osgi-demo-karaf-feature/pom.xml features/opentelemet
 COPY features/opentelemetry-osgi-karaf-distribution/pom.xml features/opentelemetry-osgi-karaf-distribution/
 COPY incubator/pom.xml incubator/
 COPY incubator/opentelemetry-osgi-agent/pom.xml incubator/opentelemetry-osgi-agent/
+COPY weaving/pom.xml weaving/
+COPY weaving/opentelemetry-osgi-weaving/pom.xml weaving/opentelemetry-osgi-weaving/
+COPY weaving/opentelemetry-osgi-weaver-servlet/pom.xml weaving/opentelemetry-osgi-weaver-servlet/
 RUN mvn dependency:go-offline -q -B 2>/dev/null || true
 
 # Build the entire project including the Karaf distribution assembly

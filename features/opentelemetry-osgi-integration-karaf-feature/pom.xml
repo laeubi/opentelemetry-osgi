@@ -40,6 +40,26 @@
             <artifactId>opentelemetry-osgi-log</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.eclipse.osgi-technology.incubator</groupId>
+            <artifactId>opentelemetry-osgi-cm</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.osgi-technology.incubator</groupId>
+            <artifactId>opentelemetry-osgi-healthcheck</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.osgi-technology.incubator</groupId>
+            <artifactId>opentelemetry-osgi-weaving</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.osgi-technology.incubator</groupId>
+            <artifactId>opentelemetry-osgi-weaver-servlet</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
