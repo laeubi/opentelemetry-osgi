@@ -62,7 +62,8 @@ public class OpenTelemetryService implements OpenTelemetry {
         LOG.info("Activating OpenTelemetry SDK service");
         this.sdk = buildSdk(context, config);
         LOG.info("OpenTelemetry SDK service activated with service.name=" + config.serviceName()
-            + ", exporter=" + resolveExporterType(config));
+            + ", exporter=" + resolveExporterType(config)
+            + ", endpoint=" + resolveOtlpEndpoint(config));
     }
 
     @Modified
@@ -104,8 +105,9 @@ public class OpenTelemetryService implements OpenTelemetry {
             OpenTelemetryConfiguration config) {
         SpanExporter spanExporter;
         if ("otlp".equals(exporterType)) {
+            String endpoint = resolveOtlpEndpoint(config);
             spanExporter = OtlpHttpSpanExporter.builder()
-                .setEndpoint(config.otlpEndpoint() + "/v1/traces")
+                .setEndpoint(endpoint + "/v1/traces")
                 .build();
             return SdkTracerProvider.builder()
                 .setResource(resource)
@@ -123,8 +125,9 @@ public class OpenTelemetryService implements OpenTelemetry {
             OpenTelemetryConfiguration config) {
         MetricExporter metricExporter;
         if ("otlp".equals(exporterType)) {
+            String endpoint = resolveOtlpEndpoint(config);
             metricExporter = OtlpHttpMetricExporter.builder()
-                .setEndpoint(config.otlpEndpoint() + "/v1/metrics")
+                .setEndpoint(endpoint + "/v1/metrics")
                 .build();
         } else {
             metricExporter = LoggingMetricExporter.create();
@@ -139,8 +142,9 @@ public class OpenTelemetryService implements OpenTelemetry {
             OpenTelemetryConfiguration config) {
         LogRecordExporter logExporter;
         if ("otlp".equals(exporterType)) {
+            String endpoint = resolveOtlpEndpoint(config);
             logExporter = OtlpHttpLogRecordExporter.builder()
-                .setEndpoint(config.otlpEndpoint() + "/v1/logs")
+                .setEndpoint(endpoint + "/v1/logs")
                 .build();
             return SdkLoggerProvider.builder()
                 .setResource(resource)
@@ -164,6 +168,19 @@ public class OpenTelemetryService implements OpenTelemetry {
             return "otlp";
         }
         return config.exporterType();
+    }
+
+    /**
+     * Resolves the OTLP endpoint from environment or config.
+     * The {@code OTEL_EXPORTER_OTLP_ENDPOINT} env var takes precedence over the
+     * ConfigAdmin configuration.
+     */
+    private String resolveOtlpEndpoint(OpenTelemetryConfiguration config) {
+        String envEndpoint = System.getenv("OTEL_EXPORTER_OTLP_ENDPOINT");
+        if (envEndpoint != null && !envEndpoint.isEmpty()) {
+            return envEndpoint;
+        }
+        return config.otlpEndpoint();
     }
 
     private Resource buildResource(BundleContext context, OpenTelemetryConfiguration config) {
