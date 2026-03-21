@@ -136,3 +136,10 @@ The [demo module](../demo/README.md) includes HTTP servlet demonstrations:
 
 The demo servlet is automatically instrumented by the weaving hook — no code changes required.
 Access the servlet at [http://localhost:8181/demo](http://localhost:8181/demo) when running the Docker demo.
+
+## Dashboard Preview
+
+The Docker demo ships with a pre-built Grafana dashboard.
+Below is the HTTP Servlet (Weaving) section showing live metrics from the demo servlet:
+
+![HTTP Servlet Weaving Dashboard](../doc/images/grafana-http-weaving.png)

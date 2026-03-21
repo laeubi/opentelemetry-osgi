@@ -54,3 +54,28 @@ Bridges the [OSGi Configuration Admin](https://docs.osgi.org/specification/osgi.
 - **Config Admin Inventory** — Structured log records with a snapshot of all configurations at activation time, including PIDs, factory PIDs, bundle locations, and property counts
 
 Uses the OSGi Configuration Admin API (`ConfigurationAdmin`, `ConfigurationListener`).
+
+## Dashboard Previews
+
+The Docker demo ships with a pre-built Grafana dashboard.
+Below are the sections relevant to each integration module.
+
+### OSGi Framework
+
+![OSGi Framework Dashboard](../doc/images/grafana-osgi-framework.png)
+
+### Declarative Services (SCR)
+
+![SCR Dashboard](../doc/images/grafana-scr.png)
+
+### Log Service
+
+![Log Service Dashboard](../doc/images/grafana-log-service.png)
+
+### Felix Health Checks
+
+![Health Checks Dashboard](../doc/images/grafana-health-checks.png)
+
+### Config Admin
+
+![Config Admin Dashboard](../doc/images/grafana-config-admin.png)

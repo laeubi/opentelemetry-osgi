@@ -100,21 +100,53 @@ Open [http://localhost:3000](http://localhost:3000) (no login required) and navi
 
 The dashboard provides a comprehensive view of the running OSGi runtime:
 
-![OSGi Observability Overview Dashboard](doc/images/grafana-dashboard-overview.png)
+#### 🧩 OSGi Framework
 
-**Dashboard sections:**
+Bundle and service counts, state distribution, active bundle tracking.
 
-| Section | What it shows |
-|---|---|
-| 🧩 OSGi Framework | Bundle count, active bundles, services, bundle state distribution (pie chart + time series) |
-| ⚙️ Declarative Services | Component count, active components, satisfied/unsatisfied references, SCR state distribution |
-| 📋 Log Service | Log entries by level (INFO, ERROR, …), errors by bundle |
-| 🏥 Felix Health Checks | Total health checks, OK/problem counts, status distribution pie chart, check duration and execution rate |
-| 🔧 Config Admin | Total configurations, factory configurations, configuration event rate over time |
-| 🌐 HTTP Servlet (Weaving) | HTTP requests total, HTTP errors (5xx), request rate by status code, duration percentiles (p50/p95/p99), recent HTTP traces, requests by status code |
-| 🚀 Demo Operations | Operation rate by type, average duration, top operations, active tasks, JVM memory |
-| 🔍 Recent Traces | Trace table with IDs, timestamps, span names (`osgi.hc.execution`, `osgi.bundle.resolved`, …) |
-| 📝 Live Logs | Streaming structured logs from Loki |
+![OSGi Framework](doc/images/grafana-osgi-framework.png)
+
+#### ⚙️ Declarative Services (SCR)
+
+Component state distribution, satisfied/unsatisfied references, active component counts.
+
+![Declarative Services](doc/images/grafana-scr.png)
+
+#### 📋 OSGi Log Service
+
+Log entries by level, error counts per bundle.
+
+![Log Service](doc/images/grafana-log-service.png)
+
+#### 🏥 Felix Health Checks
+
+Health check status overview, execution rate, check duration.
+
+![Felix Health Checks](doc/images/grafana-health-checks.png)
+
+#### 🔧 Config Admin
+
+Configuration counts, factory configurations, event rate over time.
+
+![Config Admin](doc/images/grafana-config-admin.png)
+
+#### 🌐 HTTP Servlet (Weaving)
+
+HTTP request rate by status code, duration percentiles (p50/p95/p99), error counts, recent HTTP traces.
+
+![HTTP Servlet Weaving](doc/images/grafana-http-weaving.png)
+
+#### 🚀 Demo Operations
+
+Operation rate by type, average duration, top operations, active tasks.
+
+![Demo Operations](doc/images/grafana-demo-operations.png)
+
+#### 🔍 Recent Traces & 📝 Live Logs
+
+Trace table with span names and streaming structured logs from Loki.
+
+![Recent Traces](doc/images/grafana-recent-traces.png)
 
 ### Explore in Grafana
 

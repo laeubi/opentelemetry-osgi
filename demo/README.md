@@ -28,3 +28,9 @@ feature:install opentelemetry-osgi-demo
 ### In Docker
 
 See the [Docker Demo](../README.md#docker-demo) section in the root README for instructions on running the complete observability stack.
+
+## Dashboard Preview
+
+When running the Docker demo, the Grafana dashboard shows live telemetry from the demo components:
+
+![Demo Operations Dashboard](../doc/images/grafana-demo-operations.png)

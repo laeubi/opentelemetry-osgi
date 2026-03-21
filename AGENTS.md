@@ -473,6 +473,50 @@ It consists of a host bundle and fragment bundles discovered via Java SPI.
 3. Register via `META-INF/services/org.eclipse.osgi.technology.incubator.opentelemetry.weaving.Weaver`
 4. Add the bundle to the integration feature descriptor at start-level 20
 
+## Screenshots and Documentation
+
+### Screenshot Generation
+
+Per-section dashboard screenshots are stored in `doc/images/` and referenced from READMEs.
+They are generated from the Grafana image renderer running in the Docker Compose stack.
+
+To regenerate screenshots:
+
+```bash
+# Ensure the Docker stack is running
+docker compose up --build -d
+
+# Wait for data to populate (~2 minutes)
+
+# Render the full dashboard
+curl -s 'http://localhost:3000/render/d/osgi-overview/osgi-observability-overview?orgId=1&width=1800&height=4500&from=now-15m&to=now&kiosk=true' -o /tmp/dashboard-full.png
+
+# Crop per-section images using Python PIL (see doc/crop-screenshots.py or use manual crops)
+```
+
+### Screenshot Files
+
+| File | Dashboard Section |
+|---|---|
+| `grafana-dashboard-overview.png` | Full dashboard (may be truncated at ~3000px) |
+| `grafana-osgi-framework.png` | 🧩 OSGi Framework (bundles, services) |
+| `grafana-scr.png` | ⚙️ Declarative Services (component states) |
+| `grafana-log-service.png` | 📋 OSGi Log Service (log entries by level) |
+| `grafana-demo-operations.png` | 🚀 Demo Operations (operation rates, durations) |
+| `grafana-health-checks.png` | 🏥 Felix Health Checks (status, durations) |
+| `grafana-config-admin.png` | 🔧 Config Admin (configs, events) |
+| `grafana-http-weaving.png` | 🌐 HTTP Servlet / Weaving (requests, latency) |
+| `grafana-recent-traces.png` | 🔍 Recent Traces (trace table) |
+| `grafana-live-logs.png` | 📝 Live Logs (Loki stream) |
+
+### README Screenshot Policy
+
+- The main `README.md` includes per-section screenshots in the dashboard section.
+- Subfolder READMEs (`integrations/`, `weaving/`, `demo/`) include context-specific dashboard screenshots relevant to their modules.
+- Screenshots use relative paths (`../doc/images/grafana-*.png` from subfolders, `doc/images/grafana-*.png` from root).
+- When adding new dashboard rows or integrations, regenerate and update the relevant screenshots.
+- When modifying dashboard panel layouts, update the crop coordinates in the screenshot generation script.
+
 ## Common Pitfalls
 
 - **`package-info.java`**: The Javadoc comment must come before the `package` declaration — do not repeat the `package` statement

@@ -78,7 +78,11 @@
         {
           "expr": "osgi_bundle_count",
           "legendFormat": "Bundles",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -125,7 +129,11 @@
         {
           "expr": "osgi_bundle_active",
           "legendFormat": "Active",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -172,7 +180,11 @@
         {
           "expr": "osgi_service_count",
           "legendFormat": "Services",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -266,7 +278,11 @@
         {
           "expr": "osgi_bundle_states",
           "legendFormat": "{{osgi_bundle_state}}",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -310,17 +326,29 @@
         {
           "expr": "osgi_bundle_count",
           "legendFormat": "Bundles",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         },
         {
           "expr": "osgi_bundle_active",
           "legendFormat": "Active Bundles",
-          "refId": "B"
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         },
         {
           "expr": "osgi_service_count",
           "legendFormat": "Services",
-          "refId": "C"
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -398,7 +426,11 @@
         {
           "expr": "osgi_bundle_states",
           "legendFormat": "{{osgi_bundle_state}}",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -456,7 +488,11 @@
         {
           "expr": "osgi_scr_component_count",
           "legendFormat": "Components",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -503,7 +539,11 @@
         {
           "expr": "osgi_scr_component_active",
           "legendFormat": "Active",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -550,7 +590,11 @@
         {
           "expr": "osgi_scr_reference_satisfied",
           "legendFormat": "Satisfied",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -659,7 +703,11 @@
         {
           "expr": "osgi_scr_component_states",
           "legendFormat": "{{osgi_scr_state}}",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -719,22 +767,38 @@
         {
           "expr": "osgi_scr_component_count",
           "legendFormat": "Total Components",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         },
         {
           "expr": "osgi_scr_component_active",
           "legendFormat": "Active Components",
-          "refId": "B"
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         },
         {
           "expr": "osgi_scr_reference_satisfied",
           "legendFormat": "Satisfied Refs",
-          "refId": "C"
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         },
         {
           "expr": "osgi_scr_reference_unsatisfied",
           "legendFormat": "Unsatisfied Refs",
-          "refId": "D"
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -785,7 +849,11 @@
         {
           "expr": "osgi_scr_reference_unsatisfied",
           "legendFormat": "Unsatisfied",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -848,7 +916,11 @@
         {
           "expr": "osgi_scr_component_states",
           "legendFormat": "{{osgi_scr_state}}",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -964,7 +1036,11 @@
         {
           "expr": "increase(osgi_log_entries_total[5m])",
           "legendFormat": "{{log_level}}",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1008,7 +1084,11 @@
         {
           "expr": "topk(10, osgi_log_errors_total) > 0",
           "legendFormat": "{{osgi_bundle_symbolic_name}}",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1063,7 +1143,11 @@
         {
           "expr": "sum by (osgi_operation) (increase(osgi_demo_operations_total[5m]))",
           "legendFormat": "{{osgi_operation}}",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1109,7 +1193,11 @@
         {
           "expr": "rate(osgi_demo_operation_duration_milliseconds_sum[5m]) / rate(osgi_demo_operation_duration_milliseconds_count[5m])",
           "legendFormat": "Avg Duration",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1158,7 +1246,11 @@
         {
           "expr": "topk(10, sum by (osgi_operation) (osgi_demo_operations_total))",
           "legendFormat": "{{osgi_operation}}",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1213,7 +1305,11 @@
         {
           "expr": "osgi_client_active_tasks",
           "legendFormat": "Tasks",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1260,7 +1356,11 @@
         {
           "expr": "sum(osgi_client_requests_total)",
           "legendFormat": "Requests",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1305,7 +1405,11 @@
         {
           "expr": "osgi_client_jvm_memory_used_bytes",
           "legendFormat": "JVM Memory",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1363,7 +1467,11 @@
         {
           "expr": "osgi_hc_count",
           "legendFormat": "Health Checks",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1410,7 +1518,11 @@
         {
           "expr": "osgi_hc_status{hc_status=\"OK\"}",
           "legendFormat": "OK",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1465,7 +1577,11 @@
         {
           "expr": "sum(osgi_hc_status{hc_status!=\"OK\"}) or vector(0)",
           "legendFormat": "Problems",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1568,7 +1684,11 @@
         {
           "expr": "osgi_hc_status",
           "legendFormat": "{{hc_status}}",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1609,7 +1729,11 @@
         {
           "expr": "osgi_hc_duration_milliseconds",
           "legendFormat": "{{hc_name}}",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1650,7 +1774,11 @@
         {
           "expr": "increase(osgi_hc_executions_total[5m])",
           "legendFormat": "Executions (5m)",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1708,7 +1836,11 @@
         {
           "expr": "osgi_cm_configuration_count",
           "legendFormat": "Configurations",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1755,7 +1887,11 @@
         {
           "expr": "osgi_cm_factory_count",
           "legendFormat": "Factory",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1845,7 +1981,11 @@
         {
           "expr": "increase(osgi_cm_events_total[5m])",
           "legendFormat": "{{cm_event_type}}",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1886,12 +2026,20 @@
         {
           "expr": "osgi_cm_configuration_count",
           "legendFormat": "Total",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         },
         {
           "expr": "osgi_cm_factory_count",
           "legendFormat": "Factory",
-          "refId": "B"
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ]
     },
@@ -1922,7 +2070,12 @@
       "targets": [
         {
           "expr": "sum(http_server_requests_total)",
-          "legendFormat": "Total"
+          "legendFormat": "Total",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A"
         }
       ],
       "fieldConfig": {
@@ -1966,7 +2119,12 @@
       "targets": [
         {
           "expr": "sum(http_server_requests_total{http_status_code=~\"5..\"})",
-          "legendFormat": "Errors"
+          "legendFormat": "Errors",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A"
         }
       ],
       "fieldConfig": {
@@ -2013,8 +2171,13 @@
       },
       "targets": [
         {
-          "expr": "sum by (http_status_code) (rate(http_server_requests_total[1m]))",
-          "legendFormat": "{{http_status_code}}"
+          "expr": "sum by (http_status_code) (rate(http_server_requests_total[5m]))",
+          "legendFormat": "{{http_status_code}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A"
         }
       ],
       "fieldConfig": {
@@ -2050,16 +2213,31 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_duration_milliseconds_bucket[1m])))",
-          "legendFormat": "p50"
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_duration_milliseconds_bucket[5m])))",
+          "legendFormat": "p50",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_duration_milliseconds_bucket[1m])))",
-          "legendFormat": "p95"
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_duration_milliseconds_bucket[5m])))",
+          "legendFormat": "p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_duration_milliseconds_bucket[1m])))",
-          "legendFormat": "p99"
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_duration_milliseconds_bucket[5m])))",
+          "legendFormat": "p99",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "C"
         }
       ],
       "fieldConfig": {
@@ -2096,11 +2274,14 @@
       },
       "targets": [
         {
-          "queryType": "nativeSearch",
-          "serviceName": "osgi-demo",
-          "spanName": "",
-          "search": "http.method=GET",
-          "limit": 10
+          "queryType": "traceql",
+          "limit": 10,
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "refId": "A",
+          "query": "{ resource.service.name = \"osgi-demo\" && name =~ \".*demo.*\" } | select(span.http.method, span.http.url, span.http.status_code)"
         }
       ],
       "options": {
@@ -2123,7 +2304,12 @@
       "targets": [
         {
           "expr": "sum by (http_status_code) (http_server_requests_total)",
-          "legendFormat": "{{http_status_code}}"
+          "legendFormat": "{{http_status_code}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A"
         }
       ],
       "fieldConfig": {
@@ -2223,7 +2409,11 @@
           "query": "{resource.service.name=\"osgi-demo\"} | select(span.osgi.operation, status)",
           "limit": 20,
           "tableType": "traces",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          }
         }
       ]
     },
@@ -2265,7 +2455,11 @@
         {
           "expr": "{service_name=\"osgi-demo\"}",
           "legendFormat": "",
-          "refId": "A"
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          }
         }
       ]
     }
