@@ -17,6 +17,15 @@ The runtime creates and manages the OpenTelemetry SDK lifecycle, including:
 The runtime publishes the `io.opentelemetry.api.OpenTelemetry` interface to the OSGi service registry.
 Other bundles can consume it via `@Reference` to produce traces, metrics, and logs.
 
+In addition, the individual provider interfaces are registered as separate OSGi services for direct consumption:
+
+- `io.opentelemetry.api.trace.TracerProvider`
+- `io.opentelemetry.api.metrics.MeterProvider`
+- `io.opentelemetry.api.logs.LoggerProvider`
+- `io.opentelemetry.context.propagation.ContextPropagators`
+
+This allows consumers to depend on exactly the provider they need without fetching the full `OpenTelemetry` service first.
+
 ### Configuration
 
 The runtime is configured via OSGi ConfigAdmin with PID `org.eclipse.osgi.technology.incubator.opentelemetry.runtime`:

@@ -24,8 +24,9 @@ opentelemetry-osgi/
 │   ├── pom.xml                      # Aggregator POM
 │   └── opentelemetry-osgi-runtime/  # OSGi service providing OpenTelemetry SDK
 │       └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/runtime/
-│           ├── OpenTelemetryService.java        # DS component publishing OpenTelemetry
-│           └── OpenTelemetryConfiguration.java  # ConfigAdmin configuration annotation
+│           ├── OpenTelemetryService.java               # DS component publishing OpenTelemetry
+│           ├── OpenTelemetryProviderRegistration.java   # Registers TracerProvider, MeterProvider, etc.
+│           └── OpenTelemetryConfiguration.java          # ConfigAdmin configuration annotation
 ├── integrations/                    # OSGi subsystem bridges
 │   ├── pom.xml                      # Aggregator POM
 │   ├── opentelemetry-osgi-framework/  # Framework bridge (bundles, services, events)
