@@ -32,3 +32,25 @@ Forwards OSGi Log Service entries to OpenTelemetry:
 - **Log Metrics** — Counters for log entries by level and error counters by bundle name
 
 Uses the [OSGi Log Service](https://docs.osgi.org/specification/osgi.core/8.0.0/service.log.html) (`LogReaderService`).
+
+### opentelemetry-osgi-healthcheck
+
+Bridges [Apache Felix Health Checks](https://felix.apache.org/documentation/subprojects/apache-felix-healthcheck.html) into OpenTelemetry:
+
+- **Health Check Metrics** — Gauges for total health check count, status distribution (OK, WARN, CRITICAL, TEMPORARILY_UNAVAILABLE), and execution duration
+- **Health Check Tracing** — Periodic execution of all registered health checks, producing a parent span `osgi.hc.execution` with child spans per individual check result
+- **Health Check Inventory** — Structured log records listing all registered health checks with their names, tags, and status at activation time
+
+Uses the Felix Health Check API (`HealthCheckExecutor`, `HealthCheck`).
+
+The Docker demo includes pre-configured general checks: CPU usage, memory, thread usage, disk space, bundles started, and the framework start check.
+
+### opentelemetry-osgi-cm
+
+Bridges the [OSGi Configuration Admin](https://docs.osgi.org/specification/osgi.cmpn/8.0.0/service.cm.html) service into OpenTelemetry:
+
+- **Config Admin Metrics** — Gauges for total configuration and factory configuration counts, plus a counter for configuration events (created, updated, deleted)
+- **Config Admin Events** — Traces for each configuration change event with PID, factory PID, and event type as span attributes
+- **Config Admin Inventory** — Structured log records with a snapshot of all configurations at activation time, including PIDs, factory PIDs, bundle locations, and property counts
+
+Uses the OSGi Configuration Admin API (`ConfigurationAdmin`, `ConfigurationListener`).

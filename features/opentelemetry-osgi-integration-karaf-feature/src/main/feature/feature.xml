@@ -6,6 +6,8 @@
       - Framework bridge (bundles, services, events)
       - SCR introspection (Declarative Services component state)
       - Log bridge (OSGi Log Service forwarding)
+      - Config Admin (configuration events and inventory)
+      - Felix Health Check (health check results and execution)
 -->
 <features name="opentelemetry-osgi-integrations-${project.version}"
           xmlns="http://karaf.apache.org/xmlns/features/v1.6.0"
@@ -15,7 +17,7 @@
 
     <!--
         OpenTelemetry OSGi Integrations.
-        Bridges OSGi framework, SCR, and Log Service state into OpenTelemetry.
+        Bridges OSGi framework, SCR, Log Service, Felix Health Check, and Config Admin into OpenTelemetry.
         Depends on the opentelemetry-osgi feature which provides the runtime.
     -->
     <feature name="opentelemetry-osgi-integrations" version="${project.version}"
@@ -28,6 +30,15 @@
         <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-scr/${project.version}</bundle>
         <!-- Log: forwards OSGi Log Service entries to OpenTelemetry logs -->
         <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-log/${project.version}</bundle>
+        <!-- Config Admin: tracks configuration changes as telemetry -->
+        <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-cm/${project.version}</bundle>
+
+        <!-- Felix Health Check: runtime dependencies -->
+        <bundle>mvn:org.apache.felix/org.apache.felix.healthcheck.api/${felix.healthcheck.api.version}</bundle>
+        <bundle>mvn:org.apache.felix/org.apache.felix.healthcheck.core/${felix.healthcheck.core.version}</bundle>
+        <bundle>mvn:org.apache.felix/org.apache.felix.healthcheck.generalchecks/${felix.healthcheck.generalchecks.version}</bundle>
+        <!-- Health Check: exposes health check results as telemetry -->
+        <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-healthcheck/${project.version}</bundle>
     </feature>
 
 </features>

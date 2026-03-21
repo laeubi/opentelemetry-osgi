@@ -41,6 +41,16 @@ opentelemetry-osgi/
 │   │       ├── ScrMetricsComponent.java         # DS component state gauges
 │   │       ├── ScrInventoryComponent.java       # DS inventory as structured logs
 │   │       └── ScrHealthCheckComponent.java     # Periodic health trace
+│   ├── opentelemetry-osgi-healthcheck/  # Felix Health Check → OpenTelemetry bridge
+│   │   └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/healthcheck/
+│   │       ├── HealthCheckMetricsComponent.java  # HC count/status/duration gauges
+│   │       ├── HealthCheckTracingComponent.java  # Periodic HC execution traces
+│   │       └── HealthCheckInventoryComponent.java # HC inventory as structured logs
+│   ├── opentelemetry-osgi-cm/          # OSGi Config Admin → OpenTelemetry bridge
+│   │   └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/cm/
+│   │       ├── ConfigAdminMetricsComponent.java  # Configuration count gauges + event counter
+│   │       ├── ConfigAdminEventComponent.java    # Configuration change traces
+│   │       └── ConfigAdminInventoryComponent.java # Configuration inventory as structured logs
 │   └── opentelemetry-osgi-log/      # OSGi Log Service → OpenTelemetry bridge
 │       └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/log/
 │           ├── LogBridgeComponent.java          # Forwards LogEntry to OTel logs
@@ -92,6 +102,8 @@ opentelemetry-osgi/
 | Framework Bridge | `opentelemetry-osgi-framework` | `integrations/` |
 | SCR Bridge | `opentelemetry-osgi-scr` | `integrations/` |
 | Log Bridge | `opentelemetry-osgi-log` | `integrations/` |
+| Health Check Bridge | `opentelemetry-osgi-healthcheck` | `integrations/` |
+| Config Admin Bridge | `opentelemetry-osgi-cm` | `integrations/` |
 | Demo | `opentelemetry-osgi-demo` | `demo/` |
 | Runtime Feature | `opentelemetry-osgi-karaf-feature` | `features/` |
 | Integration Feature | `opentelemetry-osgi-integration-karaf-feature` | `features/` |
@@ -246,6 +258,10 @@ All versions are centralized in the parent POM properties:
 | `osgi.service.component.version` | `1.5.1` | DS runtime |
 | `osgi.service.log.version` | `1.5.0` | OSGi Log Service |
 | `osgi.annotation.bundle.version` | `2.0.0` | Bundle annotations |
+| `felix.healthcheck.api.version` | `2.0.4` | Felix Health Check API |
+| `felix.healthcheck.core.version` | `2.0.8` | Felix Health Check Core |
+| `felix.healthcheck.generalchecks.version` | `3.0.8` | Felix Health Check General Checks |
+| `osgi.service.cm.version` | `1.6.1` | OSGi Configuration Admin API |
 | `bnd.version` | `7.1.0` | bnd-maven-plugin |
 
 When updating OpenTelemetry version, update the `opentelemetry.version` property — all module dependencies are managed via the BOM.
@@ -363,6 +379,32 @@ The Log module (`integrations/opentelemetry-osgi-log`) uses the OSGi Log Service
 - `LogMetricsComponent` maintains counters by log level and a dedicated error counter by bundle name
 - Requires OSGi Log Service in the container (Karaf provides via Pax Logging; in standalone Felix add `org.apache.felix:org.apache.felix.log:1.3.0`)
 
+## Health Check Module Notes
+
+The Health Check module (`integrations/opentelemetry-osgi-healthcheck`) uses the [Apache Felix Health Check](https://felix.apache.org/documentation/subprojects/apache-felix-healthcheck.html) API:
+
+- References `HealthCheckExecutor` to execute all registered health checks periodically (every 30 seconds)
+- Uses `HealthCheckSelector.empty()` which, combined with the executor config (`defaultTags=` empty), selects ALL registered health checks regardless of tags
+- `HealthCheckMetricsComponent` uses a `ScheduledExecutorService` for periodic execution and caches results in `volatile lastResults` for async gauge callbacks
+- Status mapping: `Result.Status` values (OK, WARN, CRITICAL, TEMPORARILY_UNAVAILABLE, HEALTH_CHECK_ERROR) are used as metric attributes
+- `HealthCheckTracingComponent` creates a parent span `osgi.hc.execution` with child spans for each individual health check result
+- `HealthCheckInventoryComponent` queries `BundleContext` for all `HealthCheck` service references and emits log records with name, tags, and bundle info
+- The executor config file (`org.apache.felix.hc.core.impl.executor.HealthCheckExecutorImpl.cfg`) must have `defaultTags=` (empty) to avoid the executor's default tag filter `["default"]` which would miss checks tagged with other values like `systemalive`
+- Felix Health Check bundles are proper OSGi bundles (they have `Bundle-SymbolicName`) — no `wrap:` protocol needed in feature descriptors
+- General checks (CPU, Memory, ThreadUsage, DiskSpace, BundlesStarted) require `.cfg` files to activate (`configurationPolicy=REQUIRE`); FrameworkStartCheck has `configurationPolicy=OPTIONAL` and auto-activates
+
+## Config Admin Module Notes
+
+The Config Admin module (`integrations/opentelemetry-osgi-cm`) uses the OSGi Configuration Admin service:
+
+- `ConfigAdminMetricsComponent` and `ConfigAdminEventComponent` both implement `ConfigurationListener` to receive configuration change events
+- `ConfigurationEvent` does NOT include property values (security by design) — only PID, factory PID, event type, and service reference
+- Event types: `CM_UPDATED=1`, `CM_DELETED=2`, `CM_LOCATION_CHANGED=3`
+- `ConfigAdminMetricsComponent` uses async gauges for config counts and a `LongCounter` for event counting by type
+- `ConfigAdminEventComponent` creates traces for each configuration change with PID and event type as span attributes
+- `ConfigAdminInventoryComponent` queries `configAdmin.listConfigurations(null)` for all configs — returns `null` (not empty array) when none exist
+- Inventory log records include: PID, factory PID, bundle location, property count, and property keys (but not values, for security)
+
 ## Common Pitfalls
 
 - **`package-info.java`**: The Javadoc comment must come before the `package` declaration — do not repeat the `package` statement
@@ -379,3 +421,7 @@ The Log module (`integrations/opentelemetry-osgi-log`) uses the OSGi Log Service
 - **bnd osgi.service requirements**: The `-dsannotations-options: norequirements` bnd setting is required to suppress `Require-Capability: osgi.service` headers that break Karaf's feature resolver
 - **Relative paths**: Module POMs use `<relativePath>../../pom.xml</relativePath>` since modules are two levels deep (e.g. `core/opentelemetry-osgi-runtime/pom.xml`)
 - **Maven groupId path**: The new groupId `org.eclipse.osgi-technology.incubator` maps to `org/eclipse/osgi-technology/incubator/` in Maven repository layout (note: hyphen in path)
+- **Felix HC executor defaultTags**: The `HealthCheckExecutorImpl` defaults to `defaultTags=["default"]` when `HealthCheckSelector.empty()` is used. This silently filters out checks tagged differently (e.g., `systemalive`). Deploy `org.apache.felix.hc.core.impl.executor.HealthCheckExecutorImpl.cfg` with `defaultTags=` (empty) to select ALL checks.
+- **Felix HC general checks configurationPolicy**: Most general checks use `configurationPolicy=REQUIRE` — they will NOT activate without a `.cfg` file in `${karaf.etc}/`. Only `FrameworkStartCheck` has `OPTIONAL` policy. Factory checks (BundlesStartedCheck, DiskSpaceCheck) need `<PID>-<instance>.cfg` naming.
+- **ConfigurationEvent has no properties**: `ConfigurationEvent.getReference()` returns the CM `ServiceReference`, not the configuration's properties. To get property values, fetch via `ConfigurationAdmin.getConfiguration(pid)`.
+- **ConfigAdmin listConfigurations null**: `configAdmin.listConfigurations(null)` returns `null` when no configurations exist, not an empty array. Always null-check the result.

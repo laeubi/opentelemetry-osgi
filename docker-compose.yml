@@ -120,6 +120,7 @@ services:
       - ENABLE_METRICS=true
       - RENDERING_MODE=default
       - RENDERING_CLUSTERING_MAX_CONCURRENCY=5
+      - RENDERING_HEIGHT_LIMIT=5000
     networks:
       - otel-network
 
