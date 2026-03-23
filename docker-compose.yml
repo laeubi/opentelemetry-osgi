@@ -88,7 +88,7 @@ services:
   # Pre-configured with Tempo, Prometheus, and Loki data sources
   # ==========================================================================
   grafana:
-    image: grafana/grafana:11.5.2
+    image: grafana/grafana:12.4.1
     container_name: grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
@@ -98,6 +98,8 @@ services:
       - GF_RENDERING_SERVER_URL=http://renderer:8081/render
       - GF_RENDERING_CALLBACK_URL=http://grafana:3000/
       - GF_LOG_FILTERS=rendering:debug
+      # Drilldown apps (Traces, Metrics, Logs exploration)
+      - GF_INSTALL_PLUGINS=grafana-exploretraces-app,grafana-lokiexplore-app,grafana-metricsdrilldown-app
     volumes:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana-data:/var/lib/grafana

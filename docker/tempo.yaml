@@ -22,8 +22,47 @@ storage:
     wal:
       path: /var/tempo/wal
 
+# Metrics generator produces span metrics (RED) and service graphs
+# from ingested traces — required for Grafana Drilldown Traces app
 metrics_generator:
+  registry:
+    collection_interval: 15s
+    external_labels:
+      source: tempo
+  processor:
+    service_graphs:
+      dimensions:
+        - http.method
+        - http.status_code
+      enable_client_server_prefix: true
+    span_metrics:
+      dimensions:
+        - http.method
+        - http.status_code
+        - http.route
+        - db.system
+        - db.operation
+        - jaxrs.resource.class
+    local_blocks:
+      max_live_traces: 10000
+      flush_to_storage: true
   storage:
     path: /var/tempo/metrics
+    remote_write:
+      - url: http://prometheus:9080/api/v1/write
   traces_storage:
     path: /var/tempo/traces
+
+# Override defaults to allow longer searches and larger results
+query_frontend:
+  max_retries: 2
+  search:
+    max_duration: 0s
+
+overrides:
+  defaults:
+    metrics_generator:
+      processors:
+        - service-graphs
+        - span-metrics
+        - local-blocks

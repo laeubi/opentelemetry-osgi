@@ -256,12 +256,38 @@ Screenshots for the README are stored in `doc/images/` and should be regenerated
 docker/grafana/provisioning/
 ├── datasources/
 │   └── datasources.yaml          # Tempo, Prometheus, Loki (with stable UIDs)
-└── dashboards/
-    ├── dashboards.yaml           # Dashboard provider config
-    └── osgi-overview.json        # OSGi Observability Overview dashboard
+├── dashboards/
+│   ├── dashboards.yaml           # Dashboard provider config
+│   └── osgi-overview.json        # OSGi Observability Overview dashboard
+└── plugins/
+    └── plugins.yaml              # Auto-enables Drilldown apps (Traces, Metrics, Logs)
 ```
 
 Datasources use explicit `uid` values (`tempo`, `prometheus`, `loki`) so that dashboard JSON and cross-datasource links remain stable across fresh deployments.
+
+### Grafana Drilldown Apps
+
+The Docker Compose stack installs and auto-enables three Grafana Drilldown apps via `GF_INSTALL_PLUGINS` and plugin provisioning:
+
+| Plugin ID | Name | Purpose |
+|---|---|---|
+| `grafana-exploretraces-app` | Traces Drilldown | Explore Tempo traces with filtering, breakdown, service structure |
+| `grafana-lokiexplore-app` | Logs Drilldown | Explore Loki logs with pattern detection |
+| `grafana-metricsdrilldown-app` | Metrics Drilldown | Explore Prometheus metrics with RED aggregation |
+
+Plugins are installed at Grafana startup and enabled via `docker/grafana/provisioning/plugins/plugins.yaml`.
+
+### Tempo Metrics Generator
+
+Tempo's `metrics_generator` is configured to produce span metrics and service graphs from ingested traces:
+
+- **Span metrics** — RED metrics (rate, errors, duration) per span name, written to Prometheus as `traces_spanmetrics_calls_total` and `traces_spanmetrics_duration_seconds_*`
+- **Service graphs** — Tracks request flow between services, written as `traces_service_graph_request_total` and `traces_service_graph_request_server_seconds_*`
+- **Dimensions** — `http.method`, `http.status_code`, `http.route`, `db.system`, `db.operation`, `jaxrs.resource.class`
+- **Remote write** — Metrics are pushed to Prometheus at `http://prometheus:9080/api/v1/write`
+- **Processors enabled** via overrides: `service-graphs` and `span-metrics`
+
+These metrics power the Traces Drilldown app's span rate, error rate, and duration visualizations.
 
 ## Code Conventions
 

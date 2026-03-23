@@ -1,0 +1,18 @@
+# ==============================================================================
+# Grafana Plugin Provisioning
+#
+# Auto-enables the Drilldown apps (Traces, Metrics, Logs exploration)
+# so they appear in the Grafana sidebar immediately after startup.
+# ==============================================================================
+
+apiVersion: 1
+
+apps:
+  - type: grafana-exploretraces-app
+    disabled: false
+
+  - type: grafana-lokiexplore-app
+    disabled: false
+
+  - type: grafana-metricsdrilldown-app
+    disabled: false

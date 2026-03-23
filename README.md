@@ -78,7 +78,7 @@ OTel Collector (Gateway)
     └──→ Loki      (Logs)
           │
           ▼
-       Grafana (UI + Explore + Dashboards)
+       Grafana (UI + Drilldown + Dashboards)
 ```
 
 ```bash
@@ -94,11 +94,22 @@ docker compose logs -f osgi-app
 docker compose down -v
 ```
 
-### Pre-built Dashboard
+### Drilldown (Traces, Metrics, Logs)
 
-Open [http://localhost:3000](http://localhost:3000) (no login required) and navigate to **Dashboards → OpenTelemetry OSGi → OSGi Observability Overview**.
+The Docker demo ships with **Grafana Drilldown** apps pre-installed and enabled:
 
-The dashboard provides a comprehensive view of the running OSGi runtime:
+- **Drilldown → Traces** — Explore all traces from Tempo with filtering, breakdown by service/operation, service structure graph, and comparison views
+- **Drilldown → Metrics** — Explore all Prometheus metrics with automatic RED metric aggregation
+- **Drilldown → Logs** — Explore all Loki log streams with pattern detection and filtering
+
+Tempo's **metrics generator** is configured to produce span metrics (RED — Rate, Errors, Duration) and service graphs from ingested traces.
+These are written to Prometheus and power the Traces Drilldown's span rate and duration visualizations.
+
+### Pre-built Dashboards
+
+Open [http://localhost:3000](http://localhost:3000) (no login required) and navigate to **Dashboards → OpenTelemetry OSGi**.
+
+The dashboards provide a comprehensive view of the running OSGi runtime:
 
 #### 🧩 OSGi Framework
 
@@ -191,7 +202,7 @@ Use the **Explore** view (compass icon in the sidebar) to query each backend dir
 | Apache Felix Health Check | 2.0.4 / 2.0.8 / 3.0.8 | Health check API, core, and general checks |
 | Apache Aries SPI Fly | 1.3.7 | Cross-bundle ServiceLoader support |
 | ASM | 9.7.1 | Bytecode manipulation for weaving |
-| Grafana | 11.5.2 | Observability UI |
+| Grafana | 12.4.1 | Observability UI with Drilldown apps |
 | Grafana Image Renderer | 3.12.1 | Dashboard screenshot rendering |
 | Grafana Tempo | 2.7.2 | Distributed tracing backend |
 | Prometheus | 3.2.1 | Metrics backend |
