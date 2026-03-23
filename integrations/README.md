@@ -55,6 +55,19 @@ Bridges the [OSGi Configuration Admin](https://docs.osgi.org/specification/osgi.
 
 Uses the OSGi Configuration Admin API (`ConfigurationAdmin`, `ConfigurationListener`).
 
+### opentelemetry-osgi-typedevent
+
+Bridges the [OSGi Typed Event Service](https://docs.osgi.org/specification/osgi.cmpn/8.1.0/service.typedevent.html) into OpenTelemetry:
+
+- **Typed Event Metrics** — Counter for all events by topic, gauges for registered handler counts (typed and untyped)
+- **Typed Event Tracing** — Trace spans for each event delivered through the bus with topic and event data attributes
+- **Typed Event Inventory** — Structured log records enumerating all registered event handlers at activation time
+
+Uses the OSGi Typed Event API (`UntypedEventHandler` with wildcard topics).
+The integration registers as an event handler with `event.topics=*` to observe all events flowing through the bus.
+
+The Docker demo includes the [Apache Aries TypedEvent Bus](https://github.com/apache/aries-typedevent) implementation and a demo component that periodically publishes events on various topics (heartbeat, sensor readings, orders, notifications).
+
 ### opentelemetry-osgi-mxbeans
 
 Exposes [Java Management Extensions (MXBeans)](https://docs.oracle.com/en/java/javase/21/docs/api/java.management/java/lang/management/ManagementFactory.html) as OpenTelemetry metrics:
@@ -102,3 +115,7 @@ Below are the sections relevant to each integration module.
 ### Config Admin
 
 ![Config Admin Dashboard](../doc/images/grafana-config-admin.png)
+
+### Typed Events
+
+![Typed Events Dashboard](../doc/images/grafana-typed-events.png)

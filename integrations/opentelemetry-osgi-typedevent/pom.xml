@@ -11,19 +11,22 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>opentelemetry-osgi-demo</artifactId>
-    <name>OpenTelemetry OSGi Demo</name>
-    <description>Demo components consuming the OpenTelemetry service via OSGi Declarative Services</description>
+    <artifactId>opentelemetry-osgi-typedevent</artifactId>
+    <name>OpenTelemetry OSGi Typed Event</name>
+    <description>Bridges OSGi Typed Event Service into OpenTelemetry metrics, traces, and logs</description>
 
     <dependencies>
-        <!-- OpenTelemetry API only - client should not depend on SDK -->
+        <!-- OpenTelemetry API -->
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
         </dependency>
+
+        <!-- OSGi Typed Event API -->
         <dependency>
-            <groupId>io.opentelemetry</groupId>
-            <artifactId>opentelemetry-context</artifactId>
+            <groupId>org.osgi</groupId>
+            <artifactId>org.osgi.service.typedevent</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <!-- OSGi -->
@@ -45,34 +48,6 @@
         <dependency>
             <groupId>org.osgi</groupId>
             <artifactId>org.osgi.annotation.bundle</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <!-- Servlet API (provided by Pax Web / Karaf HTTP) -->
-        <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <!-- JAX-RS API (provided at runtime by javax.ws.rs-api bundle) -->
-        <dependency>
-            <groupId>javax.ws.rs</groupId>
-            <artifactId>javax.ws.rs-api</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <!-- H2 Database (provided at runtime by H2 bundle) -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <!-- Typed Event API (provided at runtime by Aries TypedEvent Bus) -->
-        <dependency>
-            <groupId>org.osgi</groupId>
-            <artifactId>org.osgi.service.typedevent</artifactId>
             <scope>provided</scope>
         </dependency>
     </dependencies>

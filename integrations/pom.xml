@@ -22,5 +22,6 @@
         <module>opentelemetry-osgi-felix-healthcheck</module>
         <module>opentelemetry-osgi-cm</module>
         <module>opentelemetry-osgi-mxbeans</module>
+        <module>opentelemetry-osgi-typedevent</module>
     </modules>
 </project>

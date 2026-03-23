@@ -9,6 +9,7 @@
       - Config Admin (configuration events and inventory)
       - Felix Health Check (health check results and execution)
       - MXBeans (JVM memory, CPU, threads, GC, class loading)
+      - Typed Event (OSGi Typed Event Bus monitoring)
 -->
 <features name="opentelemetry-osgi-integrations-${project.version}"
           xmlns="http://karaf.apache.org/xmlns/features/v1.6.0"
@@ -18,7 +19,7 @@
 
     <!--
         OpenTelemetry OSGi Integrations.
-        Bridges OSGi framework, SCR, Log Service, Felix Health Check, and Config Admin into OpenTelemetry.
+        Bridges OSGi framework, SCR, Log Service, Felix Health Check, Config Admin, and Typed Event into OpenTelemetry.
         Depends on the opentelemetry-osgi feature which provides the runtime.
     -->
     <feature name="opentelemetry-osgi-integrations" version="${project.version}"
@@ -43,6 +44,17 @@
 
         <!-- MXBeans: exposes Java Management MXBean metrics as OpenTelemetry gauges -->
         <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-mxbeans/${project.version}</bundle>
+
+        <!-- Typed Event: runtime dependencies (Aries TypedEvent Bus + OSGi utilities) -->
+        <bundle>mvn:org.osgi/org.osgi.service.typedevent/${osgi.service.typedevent.version}</bundle>
+        <bundle>mvn:org.osgi/org.osgi.util.function/${osgi.util.function.version}</bundle>
+        <bundle>mvn:org.osgi/org.osgi.util.promise/${osgi.util.promise.version}</bundle>
+        <bundle>mvn:org.osgi/org.osgi.util.pushstream/${osgi.util.pushstream.version}</bundle>
+        <bundle>mvn:org.osgi/org.osgi.util.converter/${osgi.util.converter.version}</bundle>
+        <bundle>mvn:org.apache.aries.component-dsl/org.apache.aries.component-dsl.component-dsl/${aries.component.dsl.version}</bundle>
+        <bundle>mvn:org.apache.aries.typedevent/org.apache.aries.typedevent.bus/${aries.typedevent.version}</bundle>
+        <!-- Typed Event: monitors events and exposes as telemetry -->
+        <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-typedevent/${project.version}</bundle>
 
         <!-- Weaving Hook: OSGi-native bytecode instrumentation infrastructure (ASM embedded) -->
         <bundle start-level="20">mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-weaving/${project.version}</bundle>

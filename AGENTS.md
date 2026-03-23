@@ -56,6 +56,11 @@ opentelemetry-osgi/
 │   │   └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/mxbeans/
 │   │       ├── MxBeansMetricsComponent.java      # JVM metrics (memory, CPU, threads, GC, etc.)
 │   │       └── MxBeansConfiguration.java         # DS config annotation for metric groups
+│   ├── opentelemetry-osgi-typedevent/  # OSGi Typed Event → OpenTelemetry bridge
+│   │   └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/typedevent/
+│   │       ├── TypedEventMetricsComponent.java   # Event counter + handler count gauges
+│   │       ├── TypedEventTracingComponent.java   # Trace spans for each event
+│   │       └── TypedEventInventoryComponent.java # Handler inventory as structured logs
 │   └── opentelemetry-osgi-log/      # OSGi Log Service → OpenTelemetry bridge
 │       └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/log/
 │           ├── LogBridgeComponent.java          # Forwards LogEntry to OTel logs
@@ -146,6 +151,7 @@ opentelemetry-osgi/
 | Health Check Bridge | `opentelemetry-osgi-felix-healthcheck` | `integrations/` |
 | Config Admin Bridge | `opentelemetry-osgi-cm` | `integrations/` |
 | MXBeans Bridge | `opentelemetry-osgi-mxbeans` | `integrations/` |
+| Typed Event Bridge | `opentelemetry-osgi-typedevent` | `integrations/` |
 | Demo | `opentelemetry-osgi-demo` | `demo/` |
 | Runtime Feature | `opentelemetry-osgi-karaf-feature` | `features/` |
 | Integration Feature | `opentelemetry-osgi-integration-karaf-feature` | `features/` |
@@ -335,6 +341,13 @@ All versions are centralized in the parent POM properties:
 | `felix.healthcheck.core.version` | `2.0.8` | Felix Health Check Core |
 | `felix.healthcheck.generalchecks.version` | `3.0.8` | Felix Health Check General Checks |
 | `osgi.service.cm.version` | `1.6.1` | OSGi Configuration Admin API |
+| `osgi.service.typedevent.version` | `1.0.0` | OSGi Typed Event API |
+| `aries.typedevent.version` | `1.0.1` | Apache Aries TypedEvent Bus |
+| `aries.component.dsl.version` | `1.2.2` | Aries Component DSL |
+| `osgi.util.converter.version` | `1.0.9` | OSGi Converter |
+| `osgi.util.pushstream.version` | `1.1.0` | OSGi PushStream |
+| `osgi.util.promise.version` | `1.3.0` | OSGi Promise |
+| `osgi.util.function.version` | `1.2.0` | OSGi Function |
 | `bnd.version` | `7.1.0` | bnd-maven-plugin |
 
 When updating OpenTelemetry version, update the `opentelemetry.version` property — all module dependencies are managed via the BOM.
@@ -491,6 +504,26 @@ The MXBeans module (`integrations/opentelemetry-osgi-mxbeans`) uses `java.lang.m
 - `Import-Package: com.sun.management;resolution:=optional` in bnd config to avoid mandatory resolution of JVM-internal package
 - The module has a separate Grafana dashboard (`jvm-mxbeans.json`) with 7 sections: Memory, CPU, Threads, GC, Class Loading, Memory Pools, Buffer Pools
 
+## Typed Event Module Notes
+
+The Typed Event module (`integrations/opentelemetry-osgi-typedevent`) uses the [OSGi Typed Event Service](https://docs.osgi.org/specification/osgi.cmpn/8.1.0/service.typedevent.html) to bridge event bus activity into OpenTelemetry:
+
+- Both `TypedEventMetricsComponent` and `TypedEventTracingComponent` implement `UntypedEventHandler` with `event.topics=*` to observe ALL events flowing through the bus
+- `TypedEventMetricsComponent` maintains a `LongCounter` (`osgi.typedevent.events.total`) with `typedevent.topic` and `typedevent.topic_prefix` attributes, plus async gauges for handler counts
+- `TypedEventTracingComponent` creates `osgi.typedevent.deliver` spans with topic and event data as span attributes (capped at 20 data attributes per event)
+- `TypedEventInventoryComponent` queries `BundleContext.getAllServiceReferences()` for `TypedEventHandler`, `UntypedEventHandler`, and `UnhandledEventHandler` services at activation time
+- `extractTopicPrefix()` utility extracts the first two segments of a topic path (e.g., `org/eclipse/osgi/demo/heartbeat` → `org/eclipse`) for broader metric grouping
+- The handler count gauge for untyped handlers includes the two monitoring handlers themselves (metrics + tracing)
+- Requires Apache Aries TypedEvent Bus implementation + 5 transitive dependencies (Component DSL, Converter, PushStream, Promise, Function)
+
+### Design Trade-off: UntypedEventHandler vs TypedEventMonitor
+
+The integration uses `UntypedEventHandler` rather than `TypedEventMonitor` because:
+- Simpler API — follows the same listener pattern as other integrations (ConfigurationListener, LogListener, BundleListener)
+- TypedEventMonitor would require PushStream reactive API with backpressure handling
+- **Trade-off**: All events are considered "handled" by the monitoring handlers, so `UnhandledEventHandler` services will never fire
+- This is documented in `package-info.java` and should be noted by users who depend on unhandled event detection
+
 ## Weaving Module Notes
 
 The weaving module (`weaving/`) uses the [OSGi WeavingHook](https://docs.osgi.org/specification/osgi.core/8.0.0/framework.weavinghook.html) for lightweight bytecode instrumentation at class-load time.
@@ -590,6 +623,7 @@ curl -s 'http://localhost:3000/render/d/osgi-overview/osgi-observability-overvie
 | `grafana-demo-operations.png` | 🚀 Demo Operations (operation rates, durations) |
 | `grafana-health-checks.png` | 🏥 Felix Health Checks (status, durations) |
 | `grafana-config-admin.png` | 🔧 Config Admin (configs, events) |
+| `grafana-typed-events.png` | 📨 Typed Events (events by topic, handler counts) |
 | `grafana-http-weaving.png` | 🌐 HTTP Servlet / Weaving (requests, latency) |
 | `grafana-recent-traces.png` | 🔍 Recent Traces (trace table) |
 | `grafana-live-logs.png` | 📝 Live Logs (Loki stream) |
@@ -638,3 +672,6 @@ curl -s 'http://localhost:3000/render/d/osgi-overview/osgi-observability-overvie
 - **Weaving infrastructure exclusion**: The `OpenTelemetryWeavingHook` skips bundles from Felix, Karaf, Jetty, Pax, Aries, CXF, XBean, and Eclipse Equinox. When adding new infrastructure exclusions, update the `shouldSkipBundle()` method.
 - **MXBeans com.sun.management**: The MXBeans module uses `com.sun.management.OperatingSystemMXBean` for process/system CPU load and physical memory. This must be imported with `resolution:=optional` in bnd config, as it's a JVM-internal package that the OSGi resolver cannot satisfy. The code uses `instanceof` to degrade gracefully on non-HotSpot JVMs.
 - **MXBeans OTel unit naming**: OTel metrics with unit `By` (bytes) become `_bytes` in Prometheus, and `ms` (milliseconds) becomes `_milliseconds`. Dashboard queries must use the Prometheus-converted names (e.g., `jvm_memory_used_bytes` not `jvm_memory_used_By`).
+- **TypedEvent UntypedEventHandler marks events handled**: The Typed Event integration registers `UntypedEventHandler` services with `event.topics=*`. Per the spec, this makes ALL events "handled", so `UnhandledEventHandler` services registered by other bundles will never fire. This is a conscious trade-off for simpler implementation over `TypedEventMonitor`.
+- **TypedEvent Aries Bus uses Component DSL**: The Apache Aries TypedEvent Bus implementation (`org.apache.aries.typedevent.bus`) does NOT use Declarative Services — it uses Aries Component DSL. This means 5 additional transitive dependencies are needed: Component DSL, Converter, PushStream, Promise, Function.
+- **TypedEvent runtime deps are all OSGi bundles**: Unlike OTel JARs, all TypedEvent dependencies (Aries bus, OSGi util packages) have proper `Bundle-SymbolicName` headers. No `wrap:` protocol needed in feature descriptors.

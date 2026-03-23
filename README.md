@@ -30,7 +30,7 @@ opentelemetry-osgi/
 | Folder | Description | Details |
 |---|---|---|
 | [`core/`](core/README.md) | OpenTelemetry SDK runtime as an OSGi service | [Read more →](core/README.md) |
-| [`integrations/`](integrations/README.md) | Framework, SCR, Log Service, Health Check, Config Admin, and MXBeans bridges to OpenTelemetry | [Read more →](integrations/README.md) |
+| [`integrations/`](integrations/README.md) | Framework, SCR, Log Service, Health Check, Config Admin, MXBeans, and Typed Event bridges to OpenTelemetry | [Read more →](integrations/README.md) |
 | [`weaving/`](weaving/README.md) | OSGi WeavingHook based instrumentation for HTTP servlets, JDBC, and JAX-RS with ASM | [Read more →](weaving/README.md) |
 | [`demo/`](demo/README.md) | Demo bundle generating sample traces, metrics, and logs | [Read more →](demo/README.md) |
 | [`features/`](features/README.md) | Karaf features for runtime, integrations, and demo deployment | [Read more →](features/README.md) |
@@ -140,6 +140,12 @@ Health check status overview, execution rate, check duration.
 Configuration counts, factory configurations, event rate over time.
 
 ![Config Admin](doc/images/grafana-config-admin.png)
+
+#### 📨 Typed Events
+
+Events published per topic, event rate, handler counts (typed vs untyped), topic prefix distribution.
+
+![Typed Events](doc/images/grafana-typed-events.png)
 
 #### 🌐 HTTP Servlet (Weaving)
 
