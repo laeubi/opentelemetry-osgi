@@ -19,7 +19,7 @@ OpenTelemetry defines three core **signals**:
 opentelemetry-osgi/
 ├── core/                    — Core runtime providing OpenTelemetry SDK as an OSGi service
 ├── integrations/            — Bridges for OSGi subsystems (framework, SCR, log)
-├── weaving/                 — OSGi WeavingHook based bytecode instrumentation (HTTP servlets)
+├── weaving/                 — OSGi WeavingHook based bytecode instrumentation (servlets, JDBC, JAX-RS)
 ├── demo/                    — Demonstration bundles showcasing the integration
 ├── features/                — Apache Karaf feature descriptors for deployment
 ├── incubator/               — Experimental modules (agent extension)
@@ -31,7 +31,7 @@ opentelemetry-osgi/
 |---|---|---|
 | [`core/`](core/README.md) | OpenTelemetry SDK runtime as an OSGi service | [Read more →](core/README.md) |
 | [`integrations/`](integrations/README.md) | Framework, SCR, Log Service, Health Check, Config Admin, and MXBeans bridges to OpenTelemetry | [Read more →](integrations/README.md) |
-| [`weaving/`](weaving/README.md) | OSGi WeavingHook based HTTP servlet instrumentation with ASM | [Read more →](weaving/README.md) |
+| [`weaving/`](weaving/README.md) | OSGi WeavingHook based instrumentation for HTTP servlets, JDBC, and JAX-RS with ASM | [Read more →](weaving/README.md) |
 | [`demo/`](demo/README.md) | Demo bundle generating sample traces, metrics, and logs | [Read more →](demo/README.md) |
 | [`features/`](features/README.md) | Karaf features for runtime, integrations, and demo deployment | [Read more →](features/README.md) |
 | [`incubator/`](incubator/README.md) | Java Agent extension for bytecode-level OSGi instrumentation | [Read more →](incubator/README.md) |
@@ -135,6 +135,18 @@ Configuration counts, factory configurations, event rate over time.
 HTTP request rate by status code, duration percentiles (p50/p95/p99), error counts, recent HTTP traces.
 
 ![HTTP Servlet Weaving](doc/images/grafana-http-weaving.png)
+
+#### 🗄️ JDBC (Weaving)
+
+Database operation counts, operations per second, duration percentiles, SQL query traces.
+
+![JDBC Weaving](doc/images/grafana-jdbc-weaving.png)
+
+#### 🔗 JAX-RS (Weaving)
+
+JAX-RS resource request counts, request rate, duration percentiles, per-route breakdowns.
+
+![JAX-RS Weaving](doc/images/grafana-jaxrs-weaving.png)
 
 #### 🚀 Demo Operations
 

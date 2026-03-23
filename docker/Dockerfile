@@ -39,6 +39,8 @@ COPY incubator/opentelemetry-osgi-agent/pom.xml incubator/opentelemetry-osgi-age
 COPY weaving/pom.xml weaving/
 COPY weaving/opentelemetry-osgi-weaving/pom.xml weaving/opentelemetry-osgi-weaving/
 COPY weaving/opentelemetry-osgi-weaver-servlet/pom.xml weaving/opentelemetry-osgi-weaver-servlet/
+COPY weaving/opentelemetry-osgi-weaver-jdbc/pom.xml weaving/opentelemetry-osgi-weaver-jdbc/
+COPY weaving/opentelemetry-osgi-weaver-jaxrs/pom.xml weaving/opentelemetry-osgi-weaver-jaxrs/
 RUN mvn dependency:go-offline -q -B 2>/dev/null || true
 
 # Build the entire project including the Karaf distribution assembly

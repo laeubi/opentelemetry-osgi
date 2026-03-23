@@ -44,7 +44,8 @@ class OpenTelemetryWeavingHook implements WeavingHook {
         for (Weaver weaver : weavers) {
             try {
                 if (weaver.canWeave(className, wovenClass)) {
-                    LOG.log(Level.FINE, () -> "Weaving " + className + " with " + weaver.name());
+                    LOG.log(Level.FINE, () -> "Weaving " + className + " with " + weaver.name()
+                            + " (bundle=" + bundleSymbolicName + ")");
                     weaver.weave(wovenClass, telemetry);
                 }
             } catch (Exception e) {

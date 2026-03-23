@@ -18,5 +18,7 @@
     <modules>
         <module>opentelemetry-osgi-weaving</module>
         <module>opentelemetry-osgi-weaver-servlet</module>
+        <module>opentelemetry-osgi-weaver-jdbc</module>
+        <module>opentelemetry-osgi-weaver-jaxrs</module>
     </modules>
 </project>

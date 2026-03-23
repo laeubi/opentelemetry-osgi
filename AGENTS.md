@@ -96,13 +96,30 @@ opentelemetry-osgi/
 │   │       ├── WeaverRegistry.java              # ServiceLoader-based weaver discovery
 │   │       ├── OpenTelemetryWeavingHook.java    # OSGi WeavingHook delegating to weavers
 │   │       ├── WeavingHookActivator.java        # BundleActivator (not DS)
-│   │       └── OpenTelemetryProxy.java          # Graceful proxy with noop fallback
-│   └── opentelemetry-osgi-weaver-servlet/  # Fragment: HttpServlet instrumentation
-│       ├── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/weaver/servlet/
-│       │   ├── ServletWeaver.java                   # Weaver targeting HttpServlet subclasses
-│       │   ├── ServletClassVisitor.java             # ASM ClassVisitor for servlet methods
-│       │   ├── ServletServiceMethodVisitor.java     # ASM AdviceAdapter for bytecode injection
-│       │   └── ServletInstrumentationHelper.java    # Static helpers called from woven code
+│   │       ├── OpenTelemetryProxy.java          # Graceful proxy with noop fallback
+│   │       └── SafeClassWriter.java             # ClassWriter using target bundle classloader
+│   ├── opentelemetry-osgi-weaver-servlet/  # Fragment: HttpServlet instrumentation
+│   │   ├── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/weaver/servlet/
+│   │   │   ├── ServletWeaver.java                   # Weaver targeting HttpServlet subclasses
+│   │   │   ├── ServletClassVisitor.java             # ASM ClassVisitor for servlet methods
+│   │   │   ├── ServletServiceMethodVisitor.java     # ASM AdviceAdapter for bytecode injection
+│   │   │   └── ServletInstrumentationHelper.java    # Static helpers called from woven code
+│   │   └── src/main/resources/META-INF/services/
+│   │       └── ...opentelemetry.weaving.Weaver      # Java SPI registration
+│   ├── opentelemetry-osgi-weaver-jdbc/     # Fragment: JDBC instrumentation
+│   │   ├── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/weaver/jdbc/
+│   │   │   ├── JdbcWeaver.java                      # Weaver targeting Statement implementations
+│   │   │   ├── JdbcClassVisitor.java                # ASM ClassVisitor for execute* methods
+│   │   │   ├── JdbcMethodVisitor.java               # ASM AdviceAdapter for bytecode injection
+│   │   │   └── JdbcInstrumentationHelper.java       # Static helpers called from woven code
+│   │   └── src/main/resources/META-INF/services/
+│   │       └── ...opentelemetry.weaving.Weaver      # Java SPI registration
+│   └── opentelemetry-osgi-weaver-jaxrs/    # Fragment: JAX-RS resource instrumentation
+│       ├── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/weaver/jaxrs/
+│       │   ├── JaxRsWeaver.java                     # Weaver targeting @Path-annotated classes
+│       │   ├── JaxRsClassVisitor.java               # ASM ClassVisitor reading @Path annotations
+│       │   ├── JaxRsMethodVisitor.java              # ASM AdviceAdapter detecting HTTP method annotations
+│       │   └── JaxRsInstrumentationHelper.java      # Static helpers called from woven code
 │       └── src/main/resources/META-INF/services/
 │           └── ...opentelemetry.weaving.Weaver      # Java SPI registration
 ├── doc/
@@ -137,6 +154,8 @@ opentelemetry-osgi/
 | Agent Extension | `opentelemetry-osgi-agent` | `incubator/` |
 | Weaving Host | `opentelemetry-osgi-weaving` | `weaving/` |
 | Servlet Weaver | `opentelemetry-osgi-weaver-servlet` | `weaving/` |
+| JDBC Weaver | `opentelemetry-osgi-weaver-jdbc` | `weaving/` |
+| JAX-RS Weaver | `opentelemetry-osgi-weaver-jaxrs` | `weaving/` |
 
 ### Aggregator POMs
 
@@ -463,7 +482,7 @@ It consists of a host bundle and fragment bundles discovered via Java SPI.
 - **BundleActivator, not DS**: The WeavingHook must be active before DS component classes load — using DS would miss weaving those classes
 - **Fragment bundles for weavers**: Fragments share the host's classloader, enabling plain Java SPI without SPI Fly
 - **ASM embedded**: Avoiding a separate ASM bundle eliminates resolution ordering issues and ensures ASM classes are always visible to the weaving code
-- **Safe ClassWriter**: Uses `COMPUTE_FRAMES` with `getCommonSuperClass()` overridden to return `java/lang/Object` — the default implementation fails across OSGi classloader boundaries
+- **SafeClassWriter**: Uses `COMPUTE_FRAMES` with the target bundle's classloader for frame computation. The default `ClassWriter.getCommonSuperClass()` calls `Class.forName()` which fails across OSGi classloader boundaries. `SafeClassWriter` overrides `getClassLoader()` to use `WovenClass.getBundleWiring().getClassLoader()`, falling back to `java/lang/Object` only when the target classloader cannot resolve a type. This is critical for instrumenting complex classes (e.g., H2 `JdbcPreparedStatement`) where incorrect frame merging causes `VerifyError`.
 - **Infrastructure bundle exclusion**: Skips weaving for Felix, Karaf, Jetty, Pax, Aries, CXF, XBean, and Eclipse Equinox bundles to prevent instrumenting container internals
 - **OpenTelemetryProxy**: Uses `ServiceTracker` to gracefully handle the OpenTelemetry service not being available yet; falls back to noop tracers/meters
 - **Start-level 20**: Weaving bundles are installed at start-level 20 in the Karaf feature to ensure they activate before application bundles
@@ -477,6 +496,28 @@ It consists of a host bundle and fragment bundles discovered via Java SPI.
 - `ServletInstrumentationHelper` provides static methods called from woven bytecode (`onServiceEnter`, `onServiceExit`, `onServiceError`)
 - The instrumentation scope is `org.eclipse.osgi.technology.incubator.opentelemetry.weaver.servlet`
 
+### JDBC Weaver Details
+
+- Instruments classes implementing `java.sql.Statement`, `java.sql.PreparedStatement`, or `java.sql.CallableStatement`
+- Skips JDBC API classes themselves (packages starting with `java.sql` or `javax.sql`)
+- Targets methods: `execute`, `executeQuery`, `executeUpdate`, `executeBatch`, `executeLargeUpdate`, `executeLargeBatch`
+- Creates `CLIENT` spans with `db.system`, `db.operation`, `db.statement`, `db.jdbc.driver_class` attributes
+- Span names derived from SQL statement type (SELECT, INSERT, UPDATE, DELETE) or fall back to `JDBC <operation>`
+- Records `db.client.operations` counter and `db.client.duration` histogram metrics
+- `JdbcInstrumentationHelper` provides static methods called from woven bytecode (`onExecuteEnter`, `onExecuteExit`, `onExecuteError`)
+- The instrumentation scope is `org.eclipse.osgi.technology.incubator.opentelemetry.weaver.jdbc`
+
+### JAX-RS Weaver Details
+
+- Instruments classes annotated with `@javax.ws.rs.Path` (detected via ASM `AnnotationVisitor` — no JAX-RS compile-time dependency)
+- Only instruments methods annotated with HTTP method annotations (`@GET`, `@POST`, `@PUT`, `@DELETE`, `@PATCH`, `@HEAD`, `@OPTIONS`)
+- Combines class-level and method-level `@Path` values to compute the full route
+- Creates `INTERNAL` spans (not `SERVER` — the outer servlet span already provides `SERVER` kind)
+- Span attributes: `http.method`, `http.route`, `jaxrs.resource.class`, `jaxrs.resource.method`
+- Records `jaxrs.server.requests` counter and `jaxrs.server.duration` histogram metrics
+- `JaxRsInstrumentationHelper` provides static methods called from woven bytecode (`onMethodEnter`, `onMethodExit`, `onMethodError`)
+- The instrumentation scope is `org.eclipse.osgi.technology.incubator.opentelemetry.weaver.jaxrs`
+
 ### Build Differences from DS Modules
 
 - Uses `Bundle-Activator` header instead of DS annotations
@@ -487,8 +528,9 @@ It consists of a host bundle and fragment bundles discovered via Java SPI.
 
 1. Create a new module as a fragment bundle (`Fragment-Host: opentelemetry-osgi-weaving`)
 2. Implement the `Weaver` interface (`name()`, `canWeave()`, `weave()`)
-3. Register via `META-INF/services/org.eclipse.osgi.technology.incubator.opentelemetry.weaving.Weaver`
-4. Add the bundle to the integration feature descriptor at start-level 20
+3. Use `SafeClassWriter` (from the host bundle) instead of plain `ClassWriter` when creating the ASM `ClassWriter`
+4. Register via `META-INF/services/org.eclipse.osgi.technology.incubator.opentelemetry.weaving.Weaver`
+5. Add the bundle to the integration feature descriptor at start-level 20
 
 ## Screenshots and Documentation
 
@@ -565,7 +607,7 @@ curl -s 'http://localhost:3000/render/d/osgi-overview/osgi-observability-overvie
 - **Weaving hook activation order**: The weaving host bundle uses `BundleActivator` (not DS) because the `WeavingHook` must be registered before DS component classes load. Do not convert it to DS.
 - **Weaving ASM embedded**: ASM is included via `Private-Package` in the weaving host bundle. Do not add a separate ASM bundle — it would cause classloader visibility issues.
 - **Weaving fragment SPI**: Fragment bundles register weavers via `META-INF/services`, not OSGi service registry. This works because fragments share the host's classloader, making `ServiceLoader.load()` discover them without SPI Fly.
-- **Weaving COMPUTE_FRAMES**: The custom `ClassWriter` overrides `getCommonSuperClass()` to return `java/lang/Object`. The default ASM implementation calls `Class.forName()` which fails across OSGi classloader boundaries.
+- **Weaving SafeClassWriter**: All weavers must use `SafeClassWriter` (from the weaving host) instead of plain `ClassWriter` with `COMPUTE_FRAMES`. `SafeClassWriter` uses the target bundle's classloader (via `WovenClass.getBundleWiring().getClassLoader()`) for frame computation. Without this, complex classes (e.g., H2 `JdbcPreparedStatement`) cause `VerifyError: Bad type on operand stack` because incorrect type merging corrupts stack map frames in non-instrumented methods.
 - **Weaving start-level**: Weaving bundles must be at start-level 20 (before application bundles) in Karaf feature descriptors. Higher start-levels would cause application classes to load before the WeavingHook is registered.
 - **Weaving infrastructure exclusion**: The `OpenTelemetryWeavingHook` skips bundles from Felix, Karaf, Jetty, Pax, Aries, CXF, XBean, and Eclipse Equinox. When adding new infrastructure exclusions, update the `shouldSkipBundle()` method.
 - **MXBeans com.sun.management**: The MXBeans module uses `com.sun.management.OperatingSystemMXBean` for process/system CPU load and physical memory. This must be imported with `resolution:=optional` in bnd config, as it's a JVM-internal package that the OSGi resolver cannot satisfy. The code uses `instanceof` to degrade gracefully on non-HotSpot JVMs.

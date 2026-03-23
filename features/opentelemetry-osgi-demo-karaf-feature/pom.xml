@@ -30,6 +30,16 @@
             <artifactId>opentelemetry-osgi-demo</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- H2 Database for JDBC demo -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+        </dependency>
+        <!-- JAX-RS API for JAX-RS demo -->
+        <dependency>
+            <groupId>javax.ws.rs</groupId>
+            <artifactId>javax.ws.rs-api</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

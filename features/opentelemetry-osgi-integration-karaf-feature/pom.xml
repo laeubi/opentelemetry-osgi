@@ -65,6 +65,16 @@
             <artifactId>opentelemetry-osgi-weaver-servlet</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.eclipse.osgi-technology.incubator</groupId>
+            <artifactId>opentelemetry-osgi-weaver-jdbc</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.osgi-technology.incubator</groupId>
+            <artifactId>opentelemetry-osgi-weaver-jaxrs</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

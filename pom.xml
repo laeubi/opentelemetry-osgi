@@ -46,6 +46,8 @@
         <felix.healthcheck.generalchecks.version>3.0.8</felix.healthcheck.generalchecks.version>
         <asm.version>9.7.1</asm.version>
         <javax.servlet.api.version>3.1.0</javax.servlet.api.version>
+        <javax.ws.rs.api.version>2.1.1</javax.ws.rs.api.version>
+        <h2.version>2.2.224</h2.version>
         <bnd.version>7.1.0</bnd.version>
     </properties>
 
@@ -127,6 +129,16 @@
                 <groupId>javax.servlet</groupId>
                 <artifactId>javax.servlet-api</artifactId>
                 <version>${javax.servlet.api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>javax.ws.rs</groupId>
+                <artifactId>javax.ws.rs-api</artifactId>
+                <version>${javax.ws.rs.api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.h2database</groupId>
+                <artifactId>h2</artifactId>
+                <version>${h2.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

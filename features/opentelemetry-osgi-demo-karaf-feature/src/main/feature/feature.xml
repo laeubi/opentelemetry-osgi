@@ -20,6 +20,10 @@
     <feature name="opentelemetry-osgi-demo" version="${project.version}"
              description="OpenTelemetry OSGi Demo">
         <feature version="${project.version}">opentelemetry-osgi-integrations</feature>
+        <!-- H2 Database for JDBC demo -->
+        <bundle>mvn:com.h2database/h2/${h2.version}</bundle>
+        <!-- JAX-RS API for JAX-RS demo (annotations and reflection) -->
+        <bundle>mvn:javax.ws.rs/javax.ws.rs-api/${javax.ws.rs.api.version}</bundle>
         <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-demo/${project.version}</bundle>
     </feature>
 
