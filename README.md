@@ -30,7 +30,7 @@ opentelemetry-osgi/
 | Folder | Description | Details |
 |---|---|---|
 | [`core/`](core/README.md) | OpenTelemetry SDK runtime as an OSGi service | [Read more →](core/README.md) |
-| [`integrations/`](integrations/README.md) | Framework, SCR, Log Service, Health Check, and Config Admin bridges to OpenTelemetry | [Read more →](integrations/README.md) |
+| [`integrations/`](integrations/README.md) | Framework, SCR, Log Service, Health Check, Config Admin, and MXBeans bridges to OpenTelemetry | [Read more →](integrations/README.md) |
 | [`weaving/`](weaving/README.md) | OSGi WeavingHook based HTTP servlet instrumentation with ASM | [Read more →](weaving/README.md) |
 | [`demo/`](demo/README.md) | Demo bundle generating sample traces, metrics, and logs | [Read more →](demo/README.md) |
 | [`features/`](features/README.md) | Karaf features for runtime, integrations, and demo deployment | [Read more →](features/README.md) |
@@ -148,12 +148,22 @@ Trace table with span names and streaming structured logs from Loki.
 
 ![Recent Traces](doc/images/grafana-recent-traces.png)
 
+### JVM MXBeans Dashboard
+
+A separate **JVM MXBeans Overview** dashboard (navigate to **Dashboards → OpenTelemetry OSGi → JVM MXBeans Overview**) provides deep JVM runtime visibility:
+
+![JVM Memory](doc/images/grafana-jvm-memory.png)
+
+![JVM CPU](doc/images/grafana-jvm-cpu.png)
+
+![JVM Threads](doc/images/grafana-jvm-threads.png)
+
 ### Explore in Grafana
 
 Use the **Explore** view (compass icon in the sidebar) to query each backend directly:
 
 - **Traces** — select the *Tempo* datasource: trace names include `osgi.bundle.resolve`, `osgi.bundle.refresh`, `osgi.service.bind`, `osgi.service.lookup`, `osgi.scr.healthcheck`, `osgi.hc.execution`, `osgi.cm.updated`, `osgi.cm.deleted`
-- **Metrics** — select the *Prometheus* datasource: `osgi_bundle_count`, `osgi_bundle_active`, `osgi_bundle_states`, `osgi_service_count`, `osgi_scr_component_count`, `osgi_scr_component_states`, `osgi_hc_count`, `osgi_hc_status`, `osgi_cm_configuration_count`, `osgi_cm_factory_count`, `osgi_log_entries_total`, `osgi_demo_operations_total`, `http_server_requests_total`, `http_server_duration_milliseconds`
+- **Metrics** — select the *Prometheus* datasource: `osgi_bundle_count`, `osgi_bundle_active`, `osgi_bundle_states`, `osgi_service_count`, `osgi_scr_component_count`, `osgi_scr_component_states`, `osgi_hc_count`, `osgi_hc_status`, `osgi_cm_configuration_count`, `osgi_cm_factory_count`, `osgi_log_entries_total`, `osgi_demo_operations_total`, `http_server_requests_total`, `http_server_duration_milliseconds`, `jvm_memory_used_bytes`, `jvm_cpu_process_load`, `jvm_threads_live`, `jvm_gc_collection_count`
 - **Logs** — select the *Loki* datasource: query `{service_name="osgi-demo"}` for bundle/service inventory, SCR component state, and forwarded OSGi log entries
 
 ## Technology Stack

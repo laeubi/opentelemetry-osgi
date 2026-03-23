@@ -8,6 +8,7 @@
       - Log bridge (OSGi Log Service forwarding)
       - Config Admin (configuration events and inventory)
       - Felix Health Check (health check results and execution)
+      - MXBeans (JVM memory, CPU, threads, GC, class loading)
 -->
 <features name="opentelemetry-osgi-integrations-${project.version}"
           xmlns="http://karaf.apache.org/xmlns/features/v1.6.0"
@@ -38,7 +39,10 @@
         <bundle>mvn:org.apache.felix/org.apache.felix.healthcheck.core/${felix.healthcheck.core.version}</bundle>
         <bundle>mvn:org.apache.felix/org.apache.felix.healthcheck.generalchecks/${felix.healthcheck.generalchecks.version}</bundle>
         <!-- Health Check: exposes health check results as telemetry -->
-        <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-healthcheck/${project.version}</bundle>
+        <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-felix-healthcheck/${project.version}</bundle>
+
+        <!-- MXBeans: exposes Java Management MXBean metrics as OpenTelemetry gauges -->
+        <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-mxbeans/${project.version}</bundle>
 
         <!-- Weaving Hook: OSGi-native bytecode instrumentation infrastructure (ASM embedded) -->
         <bundle start-level="20">mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-weaving/${project.version}</bundle>

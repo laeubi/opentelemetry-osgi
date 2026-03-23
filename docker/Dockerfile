@@ -25,7 +25,8 @@ COPY integrations/opentelemetry-osgi-framework/pom.xml integrations/opentelemetr
 COPY integrations/opentelemetry-osgi-scr/pom.xml integrations/opentelemetry-osgi-scr/
 COPY integrations/opentelemetry-osgi-log/pom.xml integrations/opentelemetry-osgi-log/
 COPY integrations/opentelemetry-osgi-cm/pom.xml integrations/opentelemetry-osgi-cm/
-COPY integrations/opentelemetry-osgi-healthcheck/pom.xml integrations/opentelemetry-osgi-healthcheck/
+COPY integrations/opentelemetry-osgi-felix-healthcheck/pom.xml integrations/opentelemetry-osgi-felix-healthcheck/
+COPY integrations/opentelemetry-osgi-mxbeans/pom.xml integrations/opentelemetry-osgi-mxbeans/
 COPY demo/pom.xml demo/
 COPY demo/opentelemetry-osgi-demo/pom.xml demo/opentelemetry-osgi-demo/
 COPY features/pom.xml features/

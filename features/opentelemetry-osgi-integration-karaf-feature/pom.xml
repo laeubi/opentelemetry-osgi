@@ -47,7 +47,12 @@
         </dependency>
         <dependency>
             <groupId>org.eclipse.osgi-technology.incubator</groupId>
-            <artifactId>opentelemetry-osgi-healthcheck</artifactId>
+            <artifactId>opentelemetry-osgi-felix-healthcheck</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.osgi-technology.incubator</groupId>
+            <artifactId>opentelemetry-osgi-mxbeans</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

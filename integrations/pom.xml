@@ -19,7 +19,8 @@
         <module>opentelemetry-osgi-framework</module>
         <module>opentelemetry-osgi-scr</module>
         <module>opentelemetry-osgi-log</module>
-        <module>opentelemetry-osgi-healthcheck</module>
+        <module>opentelemetry-osgi-felix-healthcheck</module>
         <module>opentelemetry-osgi-cm</module>
+        <module>opentelemetry-osgi-mxbeans</module>
     </modules>
 </project>

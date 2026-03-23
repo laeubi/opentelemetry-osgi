@@ -33,7 +33,7 @@ Forwards OSGi Log Service entries to OpenTelemetry:
 
 Uses the [OSGi Log Service](https://docs.osgi.org/specification/osgi.core/8.0.0/service.log.html) (`LogReaderService`).
 
-### opentelemetry-osgi-healthcheck
+### opentelemetry-osgi-felix-healthcheck
 
 Bridges [Apache Felix Health Checks](https://felix.apache.org/documentation/subprojects/apache-felix-healthcheck.html) into OpenTelemetry:
 
@@ -54,6 +54,29 @@ Bridges the [OSGi Configuration Admin](https://docs.osgi.org/specification/osgi.
 - **Config Admin Inventory** — Structured log records with a snapshot of all configurations at activation time, including PIDs, factory PIDs, bundle locations, and property counts
 
 Uses the OSGi Configuration Admin API (`ConfigurationAdmin`, `ConfigurationListener`).
+
+### opentelemetry-osgi-mxbeans
+
+Exposes [Java Management Extensions (MXBeans)](https://docs.oracle.com/en/java/javase/21/docs/api/java.management/java/lang/management/ManagementFactory.html) as OpenTelemetry metrics:
+
+- **Memory** — Heap/non-heap used, committed, max; JVM uptime; physical memory total/free
+- **CPU** — Process CPU load, system CPU load, load average, available processors
+- **Threads** — Live, daemon, peak, total started thread counts
+- **GC** — Collection count and time per garbage collector
+- **Class Loading** — Currently loaded, total loaded, unloaded class counts
+- **Memory Pools** — Per-pool used, committed, max (e.g. G1 Eden Space, Metaspace)
+- **Buffer Pools** — Per-pool buffer count, memory used, total capacity
+
+Configurable via OSGi Configuration Admin — individual metric groups can be enabled/disabled.
+All metrics use `java.lang.management.ManagementFactory` MXBeans (no external dependencies).
+
+The Docker demo ships with a separate **JVM MXBeans Overview** Grafana dashboard:
+
+![JVM Memory](../doc/images/grafana-jvm-memory.png)
+
+![JVM CPU](../doc/images/grafana-jvm-cpu.png)
+
+![JVM Threads](../doc/images/grafana-jvm-threads.png)
 
 ## Dashboard Previews
 

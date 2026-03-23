@@ -42,7 +42,7 @@ opentelemetry-osgi/
 │   │       ├── ScrMetricsComponent.java         # DS component state gauges
 │   │       ├── ScrInventoryComponent.java       # DS inventory as structured logs
 │   │       └── ScrHealthCheckComponent.java     # Periodic health trace
-│   ├── opentelemetry-osgi-healthcheck/  # Felix Health Check → OpenTelemetry bridge
+│   ├── opentelemetry-osgi-felix-healthcheck/  # Felix Health Check → OpenTelemetry bridge
 │   │   └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/healthcheck/
 │   │       ├── HealthCheckMetricsComponent.java  # HC count/status/duration gauges
 │   │       ├── HealthCheckTracingComponent.java  # Periodic HC execution traces
@@ -52,6 +52,10 @@ opentelemetry-osgi/
 │   │       ├── ConfigAdminMetricsComponent.java  # Configuration count gauges + event counter
 │   │       ├── ConfigAdminEventComponent.java    # Configuration change traces
 │   │       └── ConfigAdminInventoryComponent.java # Configuration inventory as structured logs
+│   ├── opentelemetry-osgi-mxbeans/     # Java MXBeans → OpenTelemetry bridge
+│   │   └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/mxbeans/
+│   │       ├── MxBeansMetricsComponent.java      # JVM metrics (memory, CPU, threads, GC, etc.)
+│   │       └── MxBeansConfiguration.java         # DS config annotation for metric groups
 │   └── opentelemetry-osgi-log/      # OSGi Log Service → OpenTelemetry bridge
 │       └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/log/
 │           ├── LogBridgeComponent.java          # Forwards LogEntry to OTel logs
@@ -122,8 +126,9 @@ opentelemetry-osgi/
 | Framework Bridge | `opentelemetry-osgi-framework` | `integrations/` |
 | SCR Bridge | `opentelemetry-osgi-scr` | `integrations/` |
 | Log Bridge | `opentelemetry-osgi-log` | `integrations/` |
-| Health Check Bridge | `opentelemetry-osgi-healthcheck` | `integrations/` |
+| Health Check Bridge | `opentelemetry-osgi-felix-healthcheck` | `integrations/` |
 | Config Admin Bridge | `opentelemetry-osgi-cm` | `integrations/` |
+| MXBeans Bridge | `opentelemetry-osgi-mxbeans` | `integrations/` |
 | Demo | `opentelemetry-osgi-demo` | `demo/` |
 | Runtime Feature | `opentelemetry-osgi-karaf-feature` | `features/` |
 | Integration Feature | `opentelemetry-osgi-integration-karaf-feature` | `features/` |
@@ -405,7 +410,7 @@ The Log module (`integrations/opentelemetry-osgi-log`) uses the OSGi Log Service
 
 ## Health Check Module Notes
 
-The Health Check module (`integrations/opentelemetry-osgi-healthcheck`) uses the [Apache Felix Health Check](https://felix.apache.org/documentation/subprojects/apache-felix-healthcheck.html) API:
+The Health Check module (`integrations/opentelemetry-osgi-felix-healthcheck`) uses the [Apache Felix Health Check](https://felix.apache.org/documentation/subprojects/apache-felix-healthcheck.html) API:
 
 - References `HealthCheckExecutor` to execute all registered health checks periodically (every 30 seconds)
 - Uses `HealthCheckSelector.empty()` which, combined with the executor config (`defaultTags=` empty), selects ALL registered health checks regardless of tags
@@ -428,6 +433,18 @@ The Config Admin module (`integrations/opentelemetry-osgi-cm`) uses the OSGi Con
 - `ConfigAdminEventComponent` creates traces for each configuration change with PID and event type as span attributes
 - `ConfigAdminInventoryComponent` queries `configAdmin.listConfigurations(null)` for all configs — returns `null` (not empty array) when none exist
 - Inventory log records include: PID, factory PID, bundle location, property count, and property keys (but not values, for security)
+
+## MXBeans Module Notes
+
+The MXBeans module (`integrations/opentelemetry-osgi-mxbeans`) uses `java.lang.management.ManagementFactory` to expose JVM runtime metrics:
+
+- Single component `MxBeansMetricsComponent` with `@Modified` support for dynamic reconfiguration
+- Configurable via `MxBeansConfiguration` annotation — 7 metric groups can be individually enabled/disabled: `memoryEnabled`, `cpuEnabled`, `threadsEnabled`, `gcEnabled`, `classLoadingEnabled`, `bufferPoolsEnabled`, `memoryPoolsEnabled`
+- Uses `com.sun.management.OperatingSystemMXBean` for process/system CPU load and physical memory (optional import; degrades gracefully on non-HotSpot JVMs)
+- All metrics are registered as OpenTelemetry async gauges (callbacks) — no background threads or polling
+- GC, memory pool, and buffer pool metrics are per-instance with name attributes
+- `Import-Package: com.sun.management;resolution:=optional` in bnd config to avoid mandatory resolution of JVM-internal package
+- The module has a separate Grafana dashboard (`jvm-mxbeans.json`) with 7 sections: Memory, CPU, Threads, GC, Class Loading, Memory Pools, Buffer Pools
 
 ## Weaving Module Notes
 
@@ -508,6 +525,14 @@ curl -s 'http://localhost:3000/render/d/osgi-overview/osgi-observability-overvie
 | `grafana-http-weaving.png` | 🌐 HTTP Servlet / Weaving (requests, latency) |
 | `grafana-recent-traces.png` | 🔍 Recent Traces (trace table) |
 | `grafana-live-logs.png` | 📝 Live Logs (Loki stream) |
+| `grafana-jvm-mxbeans-overview.png` | Full JVM MXBeans dashboard |
+| `grafana-jvm-memory.png` | 💾 JVM Memory (heap, non-heap, uptime) |
+| `grafana-jvm-cpu.png` | 🖥️ JVM CPU (process load, system load, processors) |
+| `grafana-jvm-threads.png` | 🧵 JVM Threads (live, daemon, peak, started) |
+| `grafana-jvm-gc.png` | ♻️ GC (collection count, time per collector) |
+| `grafana-jvm-classloading.png` | 📦 Class Loading (loaded, unloaded, total) |
+| `grafana-jvm-memory-pools.png` | 🏊 Memory Pools (per-pool usage) |
+| `grafana-jvm-buffer-pools.png` | 📋 Buffer Pools (count, memory, capacity) |
 
 ### README Screenshot Policy
 
@@ -543,3 +568,5 @@ curl -s 'http://localhost:3000/render/d/osgi-overview/osgi-observability-overvie
 - **Weaving COMPUTE_FRAMES**: The custom `ClassWriter` overrides `getCommonSuperClass()` to return `java/lang/Object`. The default ASM implementation calls `Class.forName()` which fails across OSGi classloader boundaries.
 - **Weaving start-level**: Weaving bundles must be at start-level 20 (before application bundles) in Karaf feature descriptors. Higher start-levels would cause application classes to load before the WeavingHook is registered.
 - **Weaving infrastructure exclusion**: The `OpenTelemetryWeavingHook` skips bundles from Felix, Karaf, Jetty, Pax, Aries, CXF, XBean, and Eclipse Equinox. When adding new infrastructure exclusions, update the `shouldSkipBundle()` method.
+- **MXBeans com.sun.management**: The MXBeans module uses `com.sun.management.OperatingSystemMXBean` for process/system CPU load and physical memory. This must be imported with `resolution:=optional` in bnd config, as it's a JVM-internal package that the OSGi resolver cannot satisfy. The code uses `instanceof` to degrade gracefully on non-HotSpot JVMs.
+- **MXBeans OTel unit naming**: OTel metrics with unit `By` (bytes) become `_bytes` in Prometheus, and `ms` (milliseconds) becomes `_milliseconds`. Dashboard queries must use the Prometheus-converted names (e.g., `jvm_memory_used_bytes` not `jvm_memory_used_By`).
