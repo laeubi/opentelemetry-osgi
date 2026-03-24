@@ -29,6 +29,27 @@ PID: `org.eclipse.osgi.technology.incubator.opentelemetry.runtime`
 
 When the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable is set, the runtime automatically switches to OTLP export mode and uses its value as the endpoint.
 
+## Resource Attributes
+
+The runtime automatically enriches all telemetry with OSGi framework information as [OpenTelemetry Resource](https://opentelemetry.io/docs/concepts/resources/) attributes.
+Resource attributes are attached to **every** trace, metric, and log record — they are the primary mechanism for identifying and correlating telemetry from different service instances.
+
+| Attribute | Source | Description |
+|---|---|---|
+| `service.name` | `OTEL_SERVICE_NAME` env or `serviceName` config | Identifies the logical service |
+| `service.version` | `serviceVersion` config | Service version |
+| `service.namespace` | `serviceNamespace` config | Logical grouping (optional) |
+| `service.instance.id` | `org.osgi.framework.uuid` | Unique instance identifier (framework UUID) |
+| `osgi.framework.uuid` | `org.osgi.framework.uuid` | OSGi framework UUID |
+| `osgi.framework.vendor` | `org.osgi.framework.vendor` | Framework implementation vendor |
+| `osgi.framework.version` | `org.osgi.framework.version` | Framework specification version |
+
+The `service.instance.id` is the standard OpenTelemetry semantic convention for distinguishing multiple instances of the same service.
+It is automatically set to the OSGi framework UUID, which is unique per framework launch.
+In Prometheus, `service.name` maps to the `job` label and `service.instance.id` maps to the `instance` label.
+
+Additional resource attributes can be configured via `additionalResourceAttributes` (format: `key=value`).
+
 ## Components
 
 | Class | Description |

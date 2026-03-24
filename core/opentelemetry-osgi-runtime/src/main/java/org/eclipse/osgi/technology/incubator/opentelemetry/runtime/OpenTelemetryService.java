@@ -208,6 +208,7 @@ public class OpenTelemetryService implements OpenTelemetry {
         }
         String uuid = context.getProperty("org.osgi.framework.uuid");
         if (uuid != null) {
+            attrs.put(AttributeKey.stringKey("service.instance.id"), uuid);
             attrs.put(AttributeKey.stringKey("osgi.framework.uuid"), uuid);
         }
 

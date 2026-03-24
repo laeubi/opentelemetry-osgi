@@ -68,17 +68,18 @@ The easiest way to see the integration in action is the Docker Compose demo.
 It spins up the full Grafana observability stack with a single command:
 
 ```
-OSGi App (Karaf + our features)
-    │ OTLP/HTTP
-    ▼
-OTel Collector (Gateway)
-    │
-    ├──→ Tempo     (Traces)
-    ├──→ Prometheus (Metrics)
-    └──→ Loki      (Logs)
-          │
-          ▼
-       Grafana (UI + Drilldown + Dashboards)
+OSGi App 1 (Karaf)──┐
+                     │ OTLP/HTTP
+OSGi App 2 (Karaf)──┤
+                     ▼
+              OTel Collector (Gateway)
+                     │
+                     ├──→ Tempo     (Traces)
+                     ├──→ Prometheus (Metrics)
+                     └──→ Loki      (Logs)
+                           │
+                           ▼
+                        Grafana (UI + Drilldown + Dashboards)
 ```
 
 ```bash
@@ -86,7 +87,7 @@ OTel Collector (Gateway)
 docker compose up --build -d
 
 # Watch the OSGi application logs
-docker compose logs -f osgi-app
+docker compose logs -f osgi-app osgi-app-2
 
 # Open Grafana at http://localhost:3000
 
@@ -196,13 +197,27 @@ See the [MXBeans module README](integrations/opentelemetry-osgi-mxbeans/README.m
 
 ![JVM Threads](doc/images/grafana-jvm-threads.png)
 
+### Multi-Instance Comparison Dashboard
+
+The **OSGi Multi-Instance Comparison** dashboard enables side-by-side comparison of multiple OSGi container instances.
+The Docker demo runs two Karaf instances (`osgi-demo-1` and `osgi-demo-2`) reporting to the same collector.
+Each instance is uniquely identified by the OSGi framework UUID, automatically set as `service.instance.id`.
+
+Use the **Instance** dropdown to filter by specific instances or compare all at once.
+
+![Multi-Instance Overview](doc/images/grafana-multi-instance-overview.png)
+
+The dashboard compares framework metrics, JVM memory/CPU/threads, log entries, HTTP and JDBC operations, and trace span rates across instances.
+
+![Multi-Instance Full Dashboard](doc/images/grafana-multi-instance.png)
+
 ### Explore in Grafana
 
 Use the **Explore** view (compass icon in the sidebar) to query each backend directly:
 
 - **Traces** — select the *Tempo* datasource: trace names include `osgi.bundle.resolve`, `osgi.service.bind`, `osgi.scr.healthcheck`, `osgi.hc.execution`, `osgi.cm.updated`, `osgi.typedevent.deliver`, `scr.activate`, `GET /demo`, `JDBC executeQuery`, `GET /api/rest/status`
 - **Metrics** — select the *Prometheus* datasource: `osgi_bundle_count`, `osgi_service_count`, `osgi_scr_component_states`, `osgi_hc_status`, `osgi_cm_configuration_count`, `osgi_log_entries_total`, `osgi_typedevent_events_total`, `http_server_requests_total`, `db_client_operations_total`, `jaxrs_server_requests_total`, `scr_lifecycle_operations_total`, `jvm_memory_used_bytes`, `jvm_cpu_process_load`
-- **Logs** — select the *Loki* datasource: query `{service_name="osgi-demo"}` for bundle/service inventory, SCR component state, and forwarded OSGi log entries
+- **Logs** — select the *Loki* datasource: query `{service_name=~"osgi-demo-.*"}` for bundle/service inventory, SCR component state, and forwarded OSGi log entries
 
 ## Technology Stack
 

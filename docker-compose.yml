@@ -1,7 +1,7 @@
 services:
 
   # ==========================================================================
-  # OSGi Application (Apache Karaf with OpenTelemetry features)
+  # OSGi Application — Instance 1 (Apache Karaf with OpenTelemetry features)
   # ==========================================================================
   osgi-app:
     build:
@@ -10,11 +10,29 @@ services:
     container_name: osgi-app
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
-      - OTEL_SERVICE_NAME=osgi-demo
+      - OTEL_SERVICE_NAME=osgi-demo-1
     depends_on:
       - otel-collector
     ports:
       - "8181:8181"
+    networks:
+      - otel-network
+
+  # ==========================================================================
+  # OSGi Application — Instance 2 (second Karaf for multi-instance demo)
+  # ==========================================================================
+  osgi-app-2:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: osgi-app-2
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_SERVICE_NAME=osgi-demo-2
+    depends_on:
+      - otel-collector
+    ports:
+      - "8182:8181"
     networks:
       - otel-network
 
