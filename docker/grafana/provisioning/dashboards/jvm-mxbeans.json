@@ -15,7 +15,28 @@
   },
   "refresh": "10s",
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "instance",
+        "label": "Instance",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": "label_values(osgi_bundle_count, job)",
+        "refresh": 2,
+        "multi": false,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1
+      }
+    ]
   },
   "annotations": {
     "list": []
@@ -43,7 +64,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_memory_used_bytes{jvm_memory_area=\"heap\"}",
+          "expr": "jvm_memory_used_bytes{job=~\"$instance\", jvm_memory_area=\"heap\"}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -90,7 +111,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_memory_committed_bytes{jvm_memory_area=\"heap\"}",
+          "expr": "jvm_memory_committed_bytes{job=~\"$instance\", jvm_memory_area=\"heap\"}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -137,7 +158,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_memory_max_bytes{jvm_memory_area=\"heap\"}",
+          "expr": "jvm_memory_max_bytes{job=~\"$instance\", jvm_memory_area=\"heap\"}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -184,7 +205,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_uptime_milliseconds / 1000",
+          "expr": "jvm_uptime_milliseconds{job=~\"$instance\"} / 1000",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -231,7 +252,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_memory_used_bytes{jvm_memory_area=\"non_heap\"}",
+          "expr": "jvm_memory_used_bytes{job=~\"$instance\", jvm_memory_area=\"non_heap\"}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -278,7 +299,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_memory_committed_bytes{jvm_memory_area=\"non_heap\"}",
+          "expr": "jvm_memory_committed_bytes{job=~\"$instance\", jvm_memory_area=\"non_heap\"}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -325,7 +346,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_memory_used_bytes{jvm_memory_area=\"heap\"}",
+          "expr": "jvm_memory_used_bytes{job=~\"$instance\", jvm_memory_area=\"heap\"}",
           "legendFormat": "Used",
           "refId": "A",
           "datasource": {
@@ -334,7 +355,7 @@
           }
         },
         {
-          "expr": "jvm_memory_committed_bytes{jvm_memory_area=\"heap\"}",
+          "expr": "jvm_memory_committed_bytes{job=~\"$instance\", jvm_memory_area=\"heap\"}",
           "legendFormat": "Committed",
           "refId": "B",
           "datasource": {
@@ -343,7 +364,7 @@
           }
         },
         {
-          "expr": "jvm_memory_max_bytes{jvm_memory_area=\"heap\"}",
+          "expr": "jvm_memory_max_bytes{job=~\"$instance\", jvm_memory_area=\"heap\"}",
           "legendFormat": "Max",
           "refId": "C",
           "datasource": {
@@ -388,7 +409,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_memory_used_bytes{jvm_memory_area=\"non_heap\"}",
+          "expr": "jvm_memory_used_bytes{job=~\"$instance\", jvm_memory_area=\"non_heap\"}",
           "legendFormat": "Used",
           "refId": "A",
           "datasource": {
@@ -397,7 +418,7 @@
           }
         },
         {
-          "expr": "jvm_memory_committed_bytes{jvm_memory_area=\"non_heap\"}",
+          "expr": "jvm_memory_committed_bytes{job=~\"$instance\", jvm_memory_area=\"non_heap\"}",
           "legendFormat": "Committed",
           "refId": "B",
           "datasource": {
@@ -455,7 +476,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_cpu_available_processors",
+          "expr": "jvm_cpu_available_processors{job=~\"$instance\"}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -502,7 +523,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_cpu_process_load * 100",
+          "expr": "jvm_cpu_process_load{job=~\"$instance\"} * 100",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -558,7 +579,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_cpu_system_load * 100",
+          "expr": "jvm_cpu_system_load{job=~\"$instance\"} * 100",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -614,7 +635,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_cpu_system_load_average",
+          "expr": "jvm_cpu_system_load_average{job=~\"$instance\"}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -662,7 +683,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_memory_physical_total_bytes",
+          "expr": "jvm_memory_physical_total_bytes{job=~\"$instance\"}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -709,7 +730,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_memory_physical_free_bytes",
+          "expr": "jvm_memory_physical_free_bytes{job=~\"$instance\"}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -756,7 +777,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_cpu_process_load * 100",
+          "expr": "jvm_cpu_process_load{job=~\"$instance\"} * 100",
           "legendFormat": "Process CPU %",
           "refId": "A",
           "datasource": {
@@ -765,7 +786,7 @@
           }
         },
         {
-          "expr": "jvm_cpu_system_load * 100",
+          "expr": "jvm_cpu_system_load{job=~\"$instance\"} * 100",
           "legendFormat": "System CPU %",
           "refId": "B",
           "datasource": {
@@ -810,7 +831,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_cpu_system_load_average",
+          "expr": "jvm_cpu_system_load_average{job=~\"$instance\"}",
           "legendFormat": "Load Average (1m)",
           "refId": "A",
           "datasource": {
@@ -868,7 +889,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_threads_live",
+          "expr": "jvm_threads_live{job=~\"$instance\"}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -915,7 +936,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_threads_daemon",
+          "expr": "jvm_threads_daemon{job=~\"$instance\"}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -962,7 +983,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_threads_peak",
+          "expr": "jvm_threads_peak{job=~\"$instance\"}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -1009,7 +1030,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_threads_started",
+          "expr": "jvm_threads_started{job=~\"$instance\"}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -1056,7 +1077,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_threads_live",
+          "expr": "jvm_threads_live{job=~\"$instance\"}",
           "legendFormat": "Live",
           "refId": "A",
           "datasource": {
@@ -1065,7 +1086,7 @@
           }
         },
         {
-          "expr": "jvm_threads_daemon",
+          "expr": "jvm_threads_daemon{job=~\"$instance\"}",
           "legendFormat": "Daemon",
           "refId": "B",
           "datasource": {
@@ -1074,7 +1095,7 @@
           }
         },
         {
-          "expr": "jvm_threads_peak",
+          "expr": "jvm_threads_peak{job=~\"$instance\"}",
           "legendFormat": "Peak",
           "refId": "C",
           "datasource": {
@@ -1132,7 +1153,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_gc_collection_count{jvm_gc_name=~\".+\"}",
+          "expr": "jvm_gc_collection_count{job=~\"$instance\", jvm_gc_name=~\".+\"}",
           "legendFormat": "{{jvm_gc_name}}",
           "refId": "A",
           "datasource": {
@@ -1177,7 +1198,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_gc_collection_time_milliseconds{jvm_gc_name=~\".+\"}",
+          "expr": "jvm_gc_collection_time_milliseconds{job=~\"$instance\", jvm_gc_name=~\".+\"}",
           "legendFormat": "{{jvm_gc_name}}",
           "refId": "A",
           "datasource": {
@@ -1235,7 +1256,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_classes_loaded",
+          "expr": "jvm_classes_loaded{job=~\"$instance\"}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -1282,7 +1303,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_classes_total_loaded",
+          "expr": "jvm_classes_total_loaded{job=~\"$instance\"}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -1329,7 +1350,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_classes_unloaded",
+          "expr": "jvm_classes_unloaded{job=~\"$instance\"}",
           "refId": "A",
           "datasource": {
             "type": "prometheus",
@@ -1376,7 +1397,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_classes_loaded",
+          "expr": "jvm_classes_loaded{job=~\"$instance\"}",
           "legendFormat": "Currently Loaded",
           "refId": "A",
           "datasource": {
@@ -1385,7 +1406,7 @@
           }
         },
         {
-          "expr": "jvm_classes_total_loaded",
+          "expr": "jvm_classes_total_loaded{job=~\"$instance\"}",
           "legendFormat": "Total Loaded",
           "refId": "B",
           "datasource": {
@@ -1394,7 +1415,7 @@
           }
         },
         {
-          "expr": "jvm_classes_unloaded",
+          "expr": "jvm_classes_unloaded{job=~\"$instance\"}",
           "legendFormat": "Unloaded",
           "refId": "C",
           "datasource": {
@@ -1452,7 +1473,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_memory_pool_used_bytes",
+          "expr": "jvm_memory_pool_used_bytes{job=~\"$instance\"}",
           "legendFormat": "{{jvm_memory_pool_name}}",
           "refId": "A",
           "datasource": {
@@ -1497,7 +1518,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_memory_pool_committed_bytes",
+          "expr": "jvm_memory_pool_committed_bytes{job=~\"$instance\"}",
           "legendFormat": "{{jvm_memory_pool_name}}",
           "refId": "A",
           "datasource": {
@@ -1555,7 +1576,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_buffer_memory_used_bytes",
+          "expr": "jvm_buffer_memory_used_bytes{job=~\"$instance\"}",
           "legendFormat": "{{jvm_buffer_pool_name}} used",
           "refId": "A",
           "datasource": {
@@ -1564,7 +1585,7 @@
           }
         },
         {
-          "expr": "jvm_buffer_total_capacity_bytes",
+          "expr": "jvm_buffer_total_capacity_bytes{job=~\"$instance\"}",
           "legendFormat": "{{jvm_buffer_pool_name}} capacity",
           "refId": "B",
           "datasource": {
@@ -1609,7 +1630,7 @@
       },
       "targets": [
         {
-          "expr": "jvm_buffer_count",
+          "expr": "jvm_buffer_count{job=~\"$instance\"}",
           "legendFormat": "{{jvm_buffer_pool_name}}",
           "refId": "A",
           "datasource": {

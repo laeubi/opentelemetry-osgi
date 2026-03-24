@@ -23,5 +23,7 @@
         <module>opentelemetry-osgi-cm</module>
         <module>opentelemetry-osgi-mxbeans</module>
         <module>opentelemetry-osgi-typedevent</module>
+        <module>opentelemetry-osgi-http-whiteboard</module>
+        <module>opentelemetry-osgi-jaxrs-whiteboard</module>
     </modules>
 </project>

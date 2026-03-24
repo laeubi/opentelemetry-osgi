@@ -61,6 +61,14 @@ opentelemetry-osgi/
 │   │       ├── TypedEventMetricsComponent.java   # Event counter + handler count gauges
 │   │       ├── TypedEventTracingComponent.java   # Trace spans for each event
 │   │       └── TypedEventInventoryComponent.java # Handler inventory as structured logs
+│   ├── opentelemetry-osgi-http-whiteboard/  # HTTP Whiteboard → OpenTelemetry bridge
+│   │   └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/http/
+│   │       ├── HttpWhiteboardMetricsComponent.java   # Per-context servlet/filter/listener gauges
+│   │       └── HttpWhiteboardInventoryComponent.java # Full DTO hierarchy as structured logs
+│   ├── opentelemetry-osgi-jaxrs-whiteboard/  # JAX-RS Whiteboard → OpenTelemetry bridge
+│   │   └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/jaxrs/
+│   │       ├── JaxrsWhiteboardMetricsComponent.java   # Per-application resource/extension gauges
+│   │       └── JaxrsWhiteboardInventoryComponent.java # Full DTO hierarchy as structured logs
 │   └── opentelemetry-osgi-log/      # OSGi Log Service → OpenTelemetry bridge
 │       └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/log/
 │           ├── LogBridgeComponent.java          # Forwards LogEntry to OTel logs
@@ -161,6 +169,8 @@ opentelemetry-osgi/
 | Config Admin Bridge | `opentelemetry-osgi-cm` | `integrations/` |
 | MXBeans Bridge | `opentelemetry-osgi-mxbeans` | `integrations/` |
 | Typed Event Bridge | `opentelemetry-osgi-typedevent` | `integrations/` |
+| HTTP Whiteboard Bridge | `opentelemetry-osgi-http-whiteboard` | `integrations/` |
+| JAX-RS Whiteboard Bridge | `opentelemetry-osgi-jaxrs-whiteboard` | `integrations/` |
 | Demo | `opentelemetry-osgi-demo` | `demo/` |
 | Runtime Feature | `opentelemetry-osgi-karaf-feature` | `features/` |
 | Integration Feature | `opentelemetry-osgi-integration-karaf-feature` | `features/` |
@@ -358,6 +368,8 @@ All versions are centralized in the parent POM properties:
 | `osgi.util.pushstream.version` | `1.1.0` | OSGi PushStream |
 | `osgi.util.promise.version` | `1.3.0` | OSGi Promise |
 | `osgi.util.function.version` | `1.2.0` | OSGi Function |
+| `osgi.service.http.whiteboard.version` | `1.1.1` | HTTP Whiteboard API (DTOs) |
+| `osgi.service.jaxrs.version` | `1.0.0` | JAX-RS Whiteboard API (DTOs) |
 | `bnd.version` | `7.1.0` | bnd-maven-plugin |
 
 When updating OpenTelemetry version, update the `opentelemetry.version` property — all module dependencies are managed via the BOM.
@@ -534,6 +546,55 @@ The integration uses `UntypedEventHandler` rather than `TypedEventMonitor` becau
 - **Trade-off**: All events are considered "handled" by the monitoring handlers, so `UnhandledEventHandler` services will never fire
 - This is documented in `package-info.java` and should be noted by users who depend on unhandled event detection
 
+## HTTP Whiteboard Module Notes
+
+The HTTP Whiteboard module (`integrations/opentelemetry-osgi-http-whiteboard`) uses the [OSGi HTTP Whiteboard](https://docs.osgi.org/specification/osgi.cmpn/8.0.0/service.http.whiteboard.html) runtime DTOs:
+
+- References `HttpServiceRuntime` to enumerate all servlet contexts, servlets, filters, listeners, resources, and error pages
+- Uses `RuntimeDTO` as the top-level descriptor: contains `ServletContextDTO[]` for each active context, plus `FailedServletDTO[]`, `FailedFilterDTO[]`, etc. for failed registrations
+- `HttpWhiteboardMetricsComponent` registers 7 async gauges: contexts (total), servlets/filters/listeners/resources/error_pages (per-context via `context.name` attribute), and failed registrations (total across all failure categories)
+- `HttpWhiteboardInventoryComponent` emits structured log records at activation with the full DTO hierarchy per context
+- Uses `org.osgi.service.http.whiteboard:1.1.1` API artifact (NOT `org.osgi.service.servlet.runtime` which is Jakarta namespace)
+
+### Key DTO Hierarchy
+
+```
+RuntimeDTO
+├── ServletContextDTO[] servletContextDTOs
+│   ├── name, contextPath, serviceId
+│   ├── ServletDTO[] servletDTOs
+│   ├── FilterDTO[] filterDTOs
+│   ├── ListenerDTO[] listenerDTOs
+│   ├── ResourceDTO[] resourceDTOs
+│   └── ErrorPageDTO[] errorPageDTOs
+├── FailedServletDTO[] failedServletDTOs
+├── FailedFilterDTO[] failedFilterDTOs
+├── FailedListenerDTO[] failedListenerDTOs
+├── FailedResourceDTO[] failedResourceDTOs
+└── FailedErrorPageDTO[] failedErrorPageDTOs
+```
+
+### Pax Web Compatibility
+
+Karaf 4.4.7 ships Pax Web 8.0.30, which provides `HttpServiceRuntime` and exports `org.osgi.service.http.runtime` packages.
+Two default servlet contexts are registered: `default` (for Whiteboard servlets) and `org.osgi.service.http` (legacy HTTP Service bridge).
+
+## JAX-RS Whiteboard Module Notes
+
+The JAX-RS Whiteboard module (`integrations/opentelemetry-osgi-jaxrs-whiteboard`) uses the [OSGi JAX-RS Whiteboard](https://docs.osgi.org/specification/osgi.cmpn/8.0.0/service.jaxrs.html) runtime DTOs:
+
+- References `JaxrsServiceRuntime` to enumerate all JAX-RS applications, resources, and extensions
+- Uses `RuntimeDTO` containing `ApplicationDTO[]` for each application, plus `FailedApplicationDTO[]`, `FailedResourceDTO[]`, `FailedExtensionDTO[]`
+- `JaxrsWhiteboardMetricsComponent` registers 5 async gauges: applications (total), resources/extensions (per-application), total HTTP methods across all resources, and failed registrations
+- `JaxrsWhiteboardInventoryComponent` emits structured log records with full application hierarchy
+- All imports use `resolution:=optional` because the JAX-RS API bundle has complex requirements (`Require-Capability: osgi.contract=JavaJAXRS`) that cannot be satisfied without a full JAX-RS Whiteboard runtime
+
+### Activation Requirements
+
+The JAX-RS Whiteboard integration only activates when a `JaxrsServiceRuntime` service is present.
+Standard Karaf 4.4.7 does **not** include a JAX-RS Whiteboard implementation.
+The integration bundle resolves in any runtime but sits idle without the runtime service.
+
 ## Weaving Module Notes
 
 The weaving module (`weaving/`) uses the [OSGi WeavingHook](https://docs.osgi.org/specification/osgi.core/8.0.0/framework.weavinghook.html) for lightweight bytecode instrumentation at class-load time.
@@ -704,11 +765,12 @@ curl -s 'http://localhost:3000/render/d/osgi-overview/osgi-observability-overvie
 
 - **Per-module READMEs** contain detailed documentation with telemetry tables, component descriptions, and dashboard screenshots for that specific module
 - **Subfolder READMEs** (`integrations/`, `weaving/`, `demo/`, `core/`, `incubator/`) are short summaries with a module table linking to each module's README
-- **Root `README.md`** includes per-section screenshots in the dashboard section for a project-wide overview
+- **Root `README.md`** is kept concise — project overview, build instructions, Docker quick-start with 1–2 teaser screenshots, and a link to the demo module README for full dashboard docs
+- **Demo module README** (`demo/opentelemetry-osgi-demo/README.md`) is the primary home for Docker Demo details, all dashboard screenshots, Drilldown docs, multi-instance info, and Explore tips
 - Module README image paths use `../../doc/images/grafana-*.png` (two levels deep)
 - Subfolder READMEs no longer contain detailed module information or screenshots — they delegate to module READMEs
 - When adding a new module, create a `README.md` in the module directory with screenshots and update the subfolder README's module table
-- When adding new dashboard rows, regenerate and update the relevant screenshots in both the root and module READMEs
+- When adding new dashboard rows, regenerate and update the relevant screenshots in the demo module README and affected module READMEs
 
 ## Common Pitfalls
 
@@ -743,3 +805,7 @@ curl -s 'http://localhost:3000/render/d/osgi-overview/osgi-observability-overvie
 - **TypedEvent UntypedEventHandler marks events handled**: The Typed Event integration registers `UntypedEventHandler` services with `event.topics=*`. Per the spec, this makes ALL events "handled", so `UnhandledEventHandler` services registered by other bundles will never fire. This is a conscious trade-off for simpler implementation over `TypedEventMonitor`.
 - **TypedEvent Aries Bus uses Component DSL**: The Apache Aries TypedEvent Bus implementation (`org.apache.aries.typedevent.bus`) does NOT use Declarative Services — it uses Aries Component DSL. This means 5 additional transitive dependencies are needed: Component DSL, Converter, PushStream, Promise, Function.
 - **TypedEvent runtime deps are all OSGi bundles**: Unlike OTel JARs, all TypedEvent dependencies (Aries bus, OSGi util packages) have proper `Bundle-SymbolicName` headers. No `wrap:` protocol needed in feature descriptors.
+- **HTTP Whiteboard javax vs Jakarta**: Karaf 4.4.7 uses pre-Jakarta APIs. The correct Maven artifact is `org.osgi:org.osgi.service.http.whiteboard:1.1.1` (NOT `org.osgi.service.servlet.runtime` which is Jakarta namespace). Pax Web provides `HttpServiceRuntime` and exports the `org.osgi.service.http.runtime` packages.
+- **JAX-RS Whiteboard optional imports**: The JAX-RS API bundle (`org.osgi:org.osgi.service.jaxrs:1.0.0`) has `Require-Capability: osgi.contract=JavaJAXRS` and imports `javax.ws.rs.*`. The integration module uses `resolution:=optional` for all JAX-RS runtime imports to resolve without a full JAX-RS Whiteboard runtime installed.
+- **JAX-RS Whiteboard not in Karaf 4.4.7**: Standard Karaf does not include a JAX-RS Whiteboard implementation. The integration sits idle. Users need to install Apache Aries JAX-RS Whiteboard or similar for it to activate.
+- **HTTP Whiteboard Pax Web contexts**: Pax Web registers two default servlet contexts: `default` (Whiteboard pattern) and `org.osgi.service.http` (legacy HTTP Service bridge). Dashboard uses `context.name` attribute for repeating panels.

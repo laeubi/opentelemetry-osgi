@@ -56,6 +56,11 @@
         <!-- Typed Event: monitors events and exposes as telemetry -->
         <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-typedevent/${project.version}</bundle>
 
+        <!-- HTTP Whiteboard: introspects servlet contexts, servlets, filters, listeners, resources -->
+        <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-http-whiteboard/${project.version}</bundle>
+        <!-- JAX-RS Whiteboard: introspects applications, resources, extensions, resource methods -->
+        <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-jaxrs-whiteboard/${project.version}</bundle>
+
         <!-- Weaving Hook: OSGi-native bytecode instrumentation infrastructure (ASM embedded) -->
         <bundle start-level="20">mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-weaving/${project.version}</bundle>
         <!-- Servlet Weaver: fragment attaching to weaving host for HTTP servlet instrumentation -->

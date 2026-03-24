@@ -14,5 +14,7 @@ Each module consumes the `OpenTelemetry` service published by the [core runtime]
 | [opentelemetry-osgi-cm](opentelemetry-osgi-cm/README.md) | Configuration Admin change events, config counts, and inventory | [Read more →](opentelemetry-osgi-cm/README.md) |
 | [opentelemetry-osgi-typedevent](opentelemetry-osgi-typedevent/README.md) | Typed Event bus observation with per-topic metrics and trace spans | [Read more →](opentelemetry-osgi-typedevent/README.md) |
 | [opentelemetry-osgi-mxbeans](opentelemetry-osgi-mxbeans/README.md) | JVM runtime metrics (memory, CPU, threads, GC, class loading, pools) | [Read more →](opentelemetry-osgi-mxbeans/README.md) |
+| [opentelemetry-osgi-http-whiteboard](opentelemetry-osgi-http-whiteboard/README.md) | HTTP Whiteboard runtime introspection (servlet contexts, servlets, filters, listeners) | [Read more →](opentelemetry-osgi-http-whiteboard/README.md) |
+| [opentelemetry-osgi-jaxrs-whiteboard](opentelemetry-osgi-jaxrs-whiteboard/README.md) | JAX-RS Whiteboard runtime introspection (applications, resources, extensions) | [Read more →](opentelemetry-osgi-jaxrs-whiteboard/README.md) |
 
 Each module README contains detailed telemetry tables, component descriptions, configuration options, and dashboard screenshots.
