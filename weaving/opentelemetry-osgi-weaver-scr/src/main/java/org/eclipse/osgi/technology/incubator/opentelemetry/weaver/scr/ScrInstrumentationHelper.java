@@ -44,13 +44,14 @@ public final class ScrInstrumentationHelper {
     /**
      * Called at the beginning of a DS lifecycle method.
      *
+     * @param componentName the DS component name from the XML descriptor
      * @param componentClass the fully qualified component implementation class
      * @param methodName the lifecycle method name
      * @param action the lifecycle action (activate, deactivate, modified, constructor)
      * @return an array of {@code [Span, Scope, startTimeMillis, action, componentClass]}
      */
-    public static Object[] onLifecycleEnter(String componentClass, String methodName,
-            String action) {
+    public static Object[] onLifecycleEnter(String componentName, String componentClass,
+            String methodName, String action) {
         OpenTelemetryProxy proxy = PROXY.get();
         if (proxy == null) {
             return null;
@@ -63,6 +64,7 @@ public final class ScrInstrumentationHelper {
 
         Span span = tracer.spanBuilder(spanName)
                 .setSpanKind(SpanKind.INTERNAL)
+                .setAttribute(AttributeKey.stringKey("scr.component.name"), componentName)
                 .setAttribute(AttributeKey.stringKey("scr.component.class"), componentClass)
                 .setAttribute(AttributeKey.stringKey("scr.lifecycle.action"), action)
                 .setAttribute(AttributeKey.stringKey("scr.method.name"), methodName)

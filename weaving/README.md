@@ -40,7 +40,8 @@ opentelemetry-osgi-weaver-jaxrs (fragment bundle)
 
 opentelemetry-osgi-weaver-scr (fragment bundle)
 ├── ScrWeaver                   — Weaver implementation targeting DS component classes via XML parsing
-├── ScrClassVisitor             — ASM ClassVisitor identifying lifecycle-annotated methods
+├── ComponentDescriptor         — Record holding lifecycle method names from DS XML descriptor
+├── ScrClassVisitor             — ASM ClassVisitor matching lifecycle methods by name from XML
 ├── ScrMethodVisitor            — ASM AdviceAdapter injecting instrumentation bytecode
 ├── ScrInstrumentationHelper    — Static helper methods called from woven bytecode
 └── META-INF/services/...Weaver — Java SPI registration
@@ -194,13 +195,17 @@ Span kind is `INTERNAL` (not `SERVER`) because the outer servlet span already ha
 ### opentelemetry-osgi-weaver-scr
 
 A fragment bundle attaching to the weaving host that instruments Declarative Services component lifecycle methods.
-Inspired by [biz.aQute.trace](https://github.com/aQute-os/biz.aQute.osgi.util), the weaver parses the `Service-Component` manifest header and DS XML descriptors to identify component implementation classes, then instruments methods annotated with `@Activate`, `@Deactivate`, `@Modified`, and constructors with `@Activate`.
+Inspired by [biz.aQute.trace](https://github.com/aQute-os/biz.aQute.osgi.util), the weaver parses the `Service-Component` manifest header and DS XML descriptors to identify component implementation classes and their lifecycle method names.
+No annotation scanning is performed — the XML descriptor is the single source of truth, as annotations are not mandatory for DS components.
 
 #### Detection
 
-The weaver reads the `Service-Component` manifest header of each bundle, parses the referenced DS XML files, and extracts the `<implementation class="...">` attribute.
-Only classes listed in the DS XML are considered for weaving — this makes the detection highly efficient.
-Lifecycle methods are identified via their DS annotations (`org.osgi.service.component.annotations`).
+The weaver reads the `Service-Component` manifest header of each bundle, parses the referenced DS XML files, and extracts:
+- The `<implementation class="...">` attribute to identify component classes
+- The `<component>` element attributes for lifecycle method names: `activate` (default "activate"), `deactivate` (default "deactivate"), `modified` (no default), `init` (default 0 for constructor injection)
+
+Only classes listed in the DS XML are considered for weaving.
+Lifecycle methods are matched by name as declared in the XML — no annotation scanning is needed.
 
 #### Generated Telemetry
 
@@ -208,6 +213,7 @@ Lifecycle methods are identified via their DS annotations (`org.osgi.service.com
 
 | Attribute | Description |
 |---|---|
+| `scr.component.name` | DS component name from the XML descriptor |
 | `scr.component.class` | Fully qualified component implementation class |
 | `scr.lifecycle.action` | Lifecycle action: activate, deactivate, modified, constructor |
 | `scr.method.name` | Method name (or `<init>` for constructors) |

@@ -130,7 +130,8 @@ opentelemetry-osgi/
 │   └── opentelemetry-osgi-weaver-scr/      # Fragment: SCR lifecycle instrumentation
 │       ├── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/weaver/scr/
 │       │   ├── ScrWeaver.java                       # Weaver targeting DS component classes via XML parsing
-│       │   ├── ScrClassVisitor.java                 # ASM ClassVisitor identifying lifecycle annotations
+│       │   ├── ComponentDescriptor.java             # Record: lifecycle method names from DS XML
+│       │   ├── ScrClassVisitor.java                 # ASM ClassVisitor matching methods by XML descriptor
 │       │   ├── ScrMethodVisitor.java                # ASM AdviceAdapter injecting instrumentation bytecode
 │       │   └── ScrInstrumentationHelper.java        # Static helpers called from woven code
 │       └── src/main/resources/META-INF/services/
@@ -588,13 +589,14 @@ It consists of a host bundle and fragment bundles discovered via Java SPI.
 
 ### SCR Lifecycle Weaver Details
 
-- Inspired by [biz.aQute.trace](https://github.com/aQute-os/biz.aQute.osgi.util), uses DS XML parsing to identify component classes
-- Reads the `Service-Component` manifest header, parses XML files, extracts `<implementation class="...">` FQNs
-- Caches parsed component class names per bundle ID in a `ConcurrentHashMap` for efficient `canWeave()` checks
+- Inspired by [biz.aQute.trace](https://github.com/aQute-os/biz.aQute.osgi.util), uses DS XML parsing to identify component classes and their lifecycle methods
+- Reads the `Service-Component` manifest header, parses XML files, extracts `<implementation class="...">` FQNs and `<component>` element attributes
+- Parses lifecycle method names from XML attributes with DS spec defaults: `activate` (default "activate"), `deactivate` (default "deactivate"), `modified` (no default), `init` (default 0)
+- **No annotation scanning** — the DS XML descriptor is the single source of truth, as annotations are not mandatory for DS components
+- Caches parsed `ComponentDescriptor` records per bundle ID in a `ConcurrentHashMap` for efficient `canWeave()` checks
 - Handles wildcard patterns in `Service-Component` header (e.g., `OSGI-INF/*.xml`) via `Bundle.findEntries()`
-- Detects lifecycle methods via ASM annotation scanning: `@Activate`, `@Deactivate`, `@Modified` (retention CLASS)
-- Also instruments constructors annotated with `@Activate` (DS 1.4+ constructor injection)
-- Creates `INTERNAL` spans with `scr.component.class`, `scr.lifecycle.action`, `scr.method.name` attributes
+- Matches methods by name from the XML descriptor; matches constructors when `init > 0` (constructor injection)
+- Creates `INTERNAL` spans with `scr.component.name`, `scr.component.class`, `scr.lifecycle.action`, `scr.method.name` attributes
 - Span names: `scr.<action> <SimpleClassName>` (e.g., `scr.activate HealthCheckInventoryComponent`)
 - Records `scr.lifecycle.operations` counter and `scr.lifecycle.duration` histogram metrics
 - `ScrInstrumentationHelper` provides static methods called from woven bytecode (`onLifecycleEnter`, `onLifecycleExit`, `onLifecycleError`)
@@ -695,7 +697,7 @@ curl -s 'http://localhost:3000/render/d/osgi-overview/osgi-observability-overvie
 - **Weaving SafeClassWriter**: All weavers must use `SafeClassWriter` (from the weaving host) instead of plain `ClassWriter` with `COMPUTE_FRAMES`. `SafeClassWriter` uses the target bundle's classloader (via `WovenClass.getBundleWiring().getClassLoader()`) for frame computation. Without this, complex classes (e.g., H2 `JdbcPreparedStatement`) cause `VerifyError: Bad type on operand stack` because incorrect type merging corrupts stack map frames in non-instrumented methods.
 - **Weaving start-level**: Weaving bundles must be at start-level 20 (before application bundles) in Karaf feature descriptors. Higher start-levels would cause application classes to load before the WeavingHook is registered.
 - **Weaving infrastructure exclusion**: The `OpenTelemetryWeavingHook` skips bundles from Felix, Karaf, Jetty, Pax, Aries, CXF, XBean, and Eclipse Equinox. When adding new infrastructure exclusions, update the `shouldSkipBundle()` method.
-- **SCR weaver DS XML parsing**: The SCR lifecycle weaver parses the `Service-Component` manifest header and DS XML files to identify component implementation classes. It caches results per bundle ID. Only classes listed in the XML are instrumented — this avoids parsing every class's bytecode for annotations.
+- **SCR weaver DS XML parsing**: The SCR lifecycle weaver parses the `Service-Component` manifest header and DS XML files to identify component implementation classes and lifecycle method names. It uses XML attributes with DS spec defaults (`activate`="activate", `deactivate`="deactivate", `modified`=none, `init`=0) — no annotation scanning is performed. Results are cached per bundle ID as `ComponentDescriptor` records.
 - **SCR weaver noop early activations**: Components that activate before the OpenTelemetry service is registered will have their lifecycle methods instrumented but produce noop spans (the `OpenTelemetryProxy` returns noop tracers/meters until the real service arrives). This is expected — the OTel runtime is itself a DS component, so there's an inherent chicken-and-egg ordering.
 - **MXBeans com.sun.management**: The MXBeans module uses `com.sun.management.OperatingSystemMXBean` for process/system CPU load and physical memory. This must be imported with `resolution:=optional` in bnd config, as it's a JVM-internal package that the OSGi resolver cannot satisfy. The code uses `instanceof` to degrade gracefully on non-HotSpot JVMs.
 - **MXBeans OTel unit naming**: OTel metrics with unit `By` (bytes) become `_bytes` in Prometheus, and `ms` (milliseconds) becomes `_milliseconds`. Dashboard queries must use the Prometheus-converted names (e.g., `jvm_memory_used_bytes` not `jvm_memory_used_By`).
