@@ -1,16 +1,21 @@
 package org.eclipse.osgi.technology.incubator.opentelemetry.scr;
 
 import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.osgi.framework.Constants;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.component.runtime.ServiceComponentRuntime;
 import org.osgi.service.component.runtime.dto.ComponentConfigurationDTO;
 import org.osgi.service.component.runtime.dto.ComponentDescriptionDTO;
@@ -34,43 +39,57 @@ import io.opentelemetry.context.Scope;
  * <p>
  * Components in FAILED_ACTIVATION state produce error spans with the failure message.
  * Components with unsatisfied references produce warning spans listing the missing dependencies.
+ * <p>
+ * Supports dynamic 1..n bindings of {@link ServiceComponentRuntime} services,
+ * running a separate health-check scheduler per service instance.
  */
 @Component(immediate = true)
 public class ScrHealthCheckComponent {
 
     private static final Logger LOG = Logger.getLogger(ScrHealthCheckComponent.class.getName());
     private static final String INSTRUMENTATION_SCOPE = "org.eclipse.osgi.technology.incubator.opentelemetry.scr.healthcheck";
+    private static final AttributeKey<Long> SERVICE_ID_KEY = AttributeKey.longKey("osgi.service.id");
 
-    @Reference
-    private OpenTelemetry openTelemetry;
-
-    @Reference
-    private ServiceComponentRuntime scr;
-
-    private ScheduledExecutorService scheduler;
+    private final OpenTelemetry openTelemetry;
+    private final ConcurrentHashMap<ServiceComponentRuntime, ScheduledExecutorService> services = new ConcurrentHashMap<>();
 
     @Activate
-    public void activate() {
-        LOG.info("ScrHealthCheckComponent activated — starting periodic health checks");
+    public ScrHealthCheckComponent(@Reference OpenTelemetry openTelemetry) {
+        this.openTelemetry = openTelemetry;
+        LOG.info("ScrHealthCheckComponent activated");
+    }
 
-        scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "otel-scr-healthcheck");
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
+    void bindServiceComponentRuntime(ServiceComponentRuntime scr, Map<String, Object> properties) {
+        long serviceId = (Long) properties.get(Constants.SERVICE_ID);
+
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "otel-scr-healthcheck-" + serviceId);
             t.setDaemon(true);
             return t;
         });
 
-        scheduler.scheduleAtFixedRate(this::runHealthCheck, 5, 30, TimeUnit.SECONDS);
+        scheduler.scheduleAtFixedRate(() -> runHealthCheck(scr, serviceId), 5, 30, TimeUnit.SECONDS);
+        services.put(scr, scheduler);
+        LOG.info("ScrHealthCheckComponent — bound ServiceComponentRuntime (service.id=" + serviceId + ")");
+    }
+
+    void unbindServiceComponentRuntime(ServiceComponentRuntime scr) {
+        ScheduledExecutorService scheduler = services.remove(scr);
+        if (scheduler != null) {
+            scheduler.shutdown();
+            LOG.info("ScrHealthCheckComponent — unbound ServiceComponentRuntime");
+        }
     }
 
     @Deactivate
     public void deactivate() {
-        if (scheduler != null) {
-            scheduler.shutdown();
-        }
+        services.values().forEach(ScheduledExecutorService::shutdown);
+        services.clear();
         LOG.info("ScrHealthCheckComponent deactivated");
     }
 
-    private void runHealthCheck() {
+    private void runHealthCheck(ServiceComponentRuntime scr, long serviceId) {
         try {
             Tracer tracer = openTelemetry.getTracer(INSTRUMENTATION_SCOPE, "0.1.0");
             Collection<ComponentDescriptionDTO> descriptions = scr.getComponentDescriptionDTOs();
@@ -81,6 +100,7 @@ public class ScrHealthCheckComponent {
             Span parentSpan = tracer.spanBuilder("osgi.scr.healthcheck")
                 .setSpanKind(SpanKind.INTERNAL)
                 .setAttribute("osgi.scr.description.count", (long) descriptions.size())
+                .setAttribute(SERVICE_ID_KEY, serviceId)
                 .startSpan();
 
             try (Scope parentScope = parentSpan.makeCurrent()) {
@@ -131,7 +151,6 @@ public class ScrHealthCheckComponent {
                 span.setAttribute("osgi.scr.bundle.name", desc.bundle.symbolicName);
             }
 
-            // Report unsatisfied references
             if (config.unsatisfiedReferences != null) {
                 for (UnsatisfiedReferenceDTO ref : config.unsatisfiedReferences) {
                     span.addEvent("Unsatisfied reference: " + ref.name
@@ -139,7 +158,6 @@ public class ScrHealthCheckComponent {
                 }
             }
 
-            // Report failure
             if (config.failure != null && !config.failure.isEmpty()) {
                 span.setStatus(StatusCode.ERROR, "Activation failed");
                 span.addEvent("Failure: " + config.failure);

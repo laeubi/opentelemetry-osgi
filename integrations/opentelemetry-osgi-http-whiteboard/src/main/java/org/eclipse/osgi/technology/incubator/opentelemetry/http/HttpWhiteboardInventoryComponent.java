@@ -1,15 +1,18 @@
 package org.eclipse.osgi.technology.incubator.opentelemetry.http;
 
 import java.util.Arrays;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import org.osgi.framework.BundleContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.http.runtime.HttpServiceRuntime;
 import org.osgi.service.http.runtime.dto.ErrorPageDTO;
 import org.osgi.service.http.runtime.dto.FilterDTO;
@@ -26,8 +29,9 @@ import io.opentelemetry.api.logs.Severity;
 /**
  * Emits a structured inventory of the HTTP Whiteboard runtime as OpenTelemetry log records.
  * <p>
- * On activation, queries the {@link HttpServiceRuntime} DTO and emits a full snapshot
- * showing the hierarchy: servlet contexts → servlets, filters, listeners, resources, error pages.
+ * Dynamically tracks all available {@link HttpServiceRuntime} instances and emits
+ * a full snapshot on each bind showing the hierarchy: servlet contexts → servlets,
+ * filters, listeners, resources, error pages.
  * <p>
  * Log record attributes include:
  * <ul>
@@ -45,32 +49,43 @@ public class HttpWhiteboardInventoryComponent {
     private static final Logger LOG = Logger.getLogger(HttpWhiteboardInventoryComponent.class.getName());
     private static final String INSTRUMENTATION_SCOPE = "org.eclipse.osgi.technology.incubator.opentelemetry.http.inventory";
 
-    @Reference
-    private OpenTelemetry openTelemetry;
-
-    @Reference
-    private HttpServiceRuntime httpServiceRuntime;
-
-    private io.opentelemetry.api.logs.Logger otelLogger;
+    private final OpenTelemetry openTelemetry;
+    private final ConcurrentHashMap<HttpServiceRuntime, Long> services = new ConcurrentHashMap<>();
 
     @Activate
-    public void activate(BundleContext context) {
-        this.otelLogger = openTelemetry.getLogsBridge().loggerBuilder(INSTRUMENTATION_SCOPE)
+    public HttpWhiteboardInventoryComponent(@Reference OpenTelemetry openTelemetry) {
+        this.openTelemetry = openTelemetry;
+        LOG.info("HttpWhiteboardInventoryComponent activated");
+    }
+
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
+    void bindHttpServiceRuntime(HttpServiceRuntime runtime, Map<String, Object> properties) {
+        long serviceId = (Long) properties.getOrDefault("service.id", 0L);
+        services.put(runtime, serviceId);
+
+        io.opentelemetry.api.logs.Logger otelLogger = openTelemetry.getLogsBridge().loggerBuilder(INSTRUMENTATION_SCOPE)
             .setInstrumentationVersion("0.1.0")
             .build();
+        emitSnapshot(runtime, otelLogger);
+        LOG.info("Bound HttpServiceRuntime (service.id=" + serviceId + ") — inventory emitted");
+    }
 
-        emitSnapshot();
-        LOG.info("HttpWhiteboardInventoryComponent activated — HTTP Whiteboard inventory emitted");
+    void unbindHttpServiceRuntime(HttpServiceRuntime runtime) {
+        Long serviceId = services.remove(runtime);
+        if (serviceId != null) {
+            LOG.info("Unbound HttpServiceRuntime (service.id=" + serviceId + ")");
+        }
     }
 
     @Deactivate
-    public void deactivate() {
+    void deactivate() {
+        services.clear();
         LOG.info("HttpWhiteboardInventoryComponent deactivated");
     }
 
-    private void emitSnapshot() {
+    private void emitSnapshot(HttpServiceRuntime runtime, io.opentelemetry.api.logs.Logger otelLogger) {
         try {
-            RuntimeDTO dto = httpServiceRuntime.getRuntimeDTO();
+            RuntimeDTO dto = runtime.getRuntimeDTO();
             int contextCount = dto.servletContextDTOs != null ? dto.servletContextDTOs.length : 0;
 
             otelLogger.logRecordBuilder()
@@ -82,17 +97,17 @@ public class HttpWhiteboardInventoryComponent {
 
             if (dto.servletContextDTOs != null) {
                 for (ServletContextDTO ctx : dto.servletContextDTOs) {
-                    emitContextInventory(ctx);
+                    emitContextInventory(ctx, otelLogger);
                 }
             }
 
-            emitFailedRegistrations(dto);
+            emitFailedRegistrations(dto, otelLogger);
         } catch (Exception e) {
             LOG.log(Level.WARNING, "Failed to emit HTTP Whiteboard inventory", e);
         }
     }
 
-    private void emitContextInventory(ServletContextDTO ctx) {
+    private void emitContextInventory(ServletContextDTO ctx, io.opentelemetry.api.logs.Logger otelLogger) {
         int servletCount = ctx.servletDTOs != null ? ctx.servletDTOs.length : 0;
         int filterCount = ctx.filterDTOs != null ? ctx.filterDTOs.length : 0;
         int listenerCount = ctx.listenerDTOs != null ? ctx.listenerDTOs.length : 0;
@@ -196,7 +211,7 @@ public class HttpWhiteboardInventoryComponent {
         }
     }
 
-    private void emitFailedRegistrations(RuntimeDTO dto) {
+    private static void emitFailedRegistrations(RuntimeDTO dto, io.opentelemetry.api.logs.Logger otelLogger) {
         long failedCount = 0;
         if (dto.failedServletDTOs != null) failedCount += dto.failedServletDTOs.length;
         if (dto.failedFilterDTOs != null) failedCount += dto.failedFilterDTOs.length;

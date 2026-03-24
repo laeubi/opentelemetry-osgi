@@ -1,12 +1,17 @@
 package org.eclipse.osgi.technology.incubator.opentelemetry.log;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.osgi.framework.Constants;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.log.LogEntry;
 import org.osgi.service.log.LogLevel;
 import org.osgi.service.log.LogListener;
@@ -17,7 +22,6 @@ import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.LongCounter;
 import io.opentelemetry.api.metrics.Meter;
-import io.opentelemetry.api.metrics.ObservableLongGauge;
 
 /**
  * Exposes OSGi Log Service statistics as OpenTelemetry metrics.
@@ -35,36 +39,54 @@ public class LogMetricsComponent implements LogListener {
     private static final Logger LOG = Logger.getLogger(LogMetricsComponent.class.getName());
     private static final String INSTRUMENTATION_SCOPE = "org.eclipse.osgi.technology.incubator.opentelemetry.log.metrics";
 
-    @Reference
-    private OpenTelemetry openTelemetry;
-
-    @Reference
-    private LogReaderService logReaderService;
-
-    private LongCounter logEntryCounter;
-    private LongCounter errorCounter;
+    private final LongCounter logEntryCounter;
+    private final LongCounter errorCounter;
+    private final ConcurrentHashMap<LogReaderService, Long> services = new ConcurrentHashMap<>();
 
     @Activate
-    public void activate() {
+    public LogMetricsComponent(@Reference OpenTelemetry openTelemetry) {
         Meter meter = openTelemetry.getMeter(INSTRUMENTATION_SCOPE);
-
-        logEntryCounter = meter.counterBuilder("osgi.log.entries")
+        this.logEntryCounter = meter.counterBuilder("osgi.log.entries")
             .setDescription("Number of OSGi log entries by level")
             .setUnit("{entries}")
             .build();
-
-        errorCounter = meter.counterBuilder("osgi.log.errors")
+        this.errorCounter = meter.counterBuilder("osgi.log.errors")
             .setDescription("Number of OSGi ERROR log entries by bundle")
             .setUnit("{entries}")
             .build();
-
-        logReaderService.addLogListener(this);
         LOG.info("LogMetricsComponent activated — counting OSGi log entries");
+    }
+
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
+    void bindLogReaderService(LogReaderService service, Map<String, Object> properties) {
+        long serviceId = (Long) properties.get(Constants.SERVICE_ID);
+        services.put(service, serviceId);
+        service.addLogListener(this);
+        LOG.info("Bound LogReaderService service.id=" + serviceId);
+    }
+
+    void unbindLogReaderService(LogReaderService service) {
+        Long serviceId = services.remove(service);
+        try {
+            service.removeLogListener(this);
+        } catch (Exception e) {
+            // service may already be gone
+        }
+        if (serviceId != null) {
+            LOG.info("Unbound LogReaderService service.id=" + serviceId);
+        }
     }
 
     @Deactivate
     public void deactivate() {
-        logReaderService.removeLogListener(this);
+        services.forEach((service, serviceId) -> {
+            try {
+                service.removeLogListener(this);
+            } catch (Exception e) {
+                // service may already be gone
+            }
+        });
+        services.clear();
         LOG.info("LogMetricsComponent deactivated");
     }
 

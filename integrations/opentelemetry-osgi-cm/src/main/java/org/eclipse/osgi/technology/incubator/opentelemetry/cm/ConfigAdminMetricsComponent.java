@@ -1,11 +1,12 @@
 package org.eclipse.osgi.technology.incubator.opentelemetry.cm;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.osgi.framework.Constants;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.cm.ConfigurationEvent;
@@ -14,6 +15,8 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
@@ -38,41 +41,43 @@ public class ConfigAdminMetricsComponent implements ConfigurationListener {
 
     private static final Logger LOG = Logger.getLogger(ConfigAdminMetricsComponent.class.getName());
     private static final String INSTRUMENTATION_SCOPE = "org.eclipse.osgi.technology.incubator.opentelemetry.cm";
+    private static final AttributeKey<Long> SERVICE_ID_KEY = AttributeKey.longKey("osgi.service.id");
 
-    @Reference
-    private OpenTelemetry openTelemetry;
-
-    @Reference
-    private ConfigurationAdmin configAdmin;
-
-    private ObservableLongGauge configCountGauge;
-    private ObservableLongGauge factoryCountGauge;
-    private LongCounter eventsCounter;
+    private final OpenTelemetry openTelemetry;
+    private final LongCounter eventsCounter;
+    private final ConcurrentHashMap<ConfigurationAdmin, ConfigAdminMetricsState> services = new ConcurrentHashMap<>();
 
     @Activate
-    public void activate() {
-        LOG.info("ConfigAdminMetricsComponent activated — registering Config Admin metrics");
+    public ConfigAdminMetricsComponent(@Reference OpenTelemetry openTelemetry) {
+        this.openTelemetry = openTelemetry;
         Meter meter = openTelemetry.getMeter(INSTRUMENTATION_SCOPE);
-
-        eventsCounter = meter.counterBuilder("osgi.cm.events.total")
+        this.eventsCounter = meter.counterBuilder("osgi.cm.events.total")
             .setDescription("Total number of configuration events")
             .setUnit("{events}")
             .build();
+        LOG.info("ConfigAdminMetricsComponent activated — registering Config Admin metrics");
+    }
 
-        configCountGauge = meter.gaugeBuilder("osgi.cm.configuration.count")
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
+    void bindConfigurationAdmin(ConfigurationAdmin configAdmin, Map<String, Object> properties) {
+        long serviceId = (Long) properties.get(Constants.SERVICE_ID);
+        Meter meter = openTelemetry.getMeter(INSTRUMENTATION_SCOPE);
+
+        ObservableLongGauge configCountGauge = meter.gaugeBuilder("osgi.cm.configuration.count")
             .setDescription("Total number of configurations")
             .setUnit("{configurations}")
             .ofLongs()
             .buildWithCallback(measurement -> {
                 try {
                     Configuration[] configs = configAdmin.listConfigurations(null);
-                    measurement.record(configs != null ? configs.length : 0);
+                    measurement.record(configs != null ? configs.length : 0,
+                        Attributes.of(SERVICE_ID_KEY, serviceId));
                 } catch (IOException | org.osgi.framework.InvalidSyntaxException e) {
                     LOG.log(Level.FINE, "Failed to count configurations", e);
                 }
             });
 
-        factoryCountGauge = meter.gaugeBuilder("osgi.cm.factory.count")
+        ObservableLongGauge factoryCountGauge = meter.gaugeBuilder("osgi.cm.factory.count")
             .setDescription("Number of factory configurations")
             .setUnit("{configurations}")
             .ofLongs()
@@ -86,22 +91,34 @@ public class ConfigAdminMetricsComponent implements ConfigurationListener {
                                 factoryCount++;
                             }
                         }
-                        measurement.record(factoryCount);
+                        measurement.record(factoryCount,
+                            Attributes.of(SERVICE_ID_KEY, serviceId));
                     } else {
-                        measurement.record(0);
+                        measurement.record(0,
+                            Attributes.of(SERVICE_ID_KEY, serviceId));
                     }
                 } catch (IOException | org.osgi.framework.InvalidSyntaxException e) {
                     LOG.log(Level.FINE, "Failed to count factory configurations", e);
                 }
             });
 
-        LOG.info("ConfigAdminMetricsComponent — Config Admin metrics registered");
+        ConfigAdminMetricsState state = new ConfigAdminMetricsState(serviceId, configCountGauge, factoryCountGauge);
+        services.put(configAdmin, state);
+        LOG.info("Bound ConfigurationAdmin service.id=" + serviceId);
+    }
+
+    void unbindConfigurationAdmin(ConfigurationAdmin configAdmin) {
+        ConfigAdminMetricsState state = services.remove(configAdmin);
+        if (state != null) {
+            state.close();
+            LOG.info("Unbound ConfigurationAdmin service.id=" + state.serviceId());
+        }
     }
 
     @Deactivate
     public void deactivate() {
-        closeQuietly(configCountGauge);
-        closeQuietly(factoryCountGauge);
+        services.forEach((configAdmin, state) -> state.close());
+        services.clear();
         LOG.info("ConfigAdminMetricsComponent deactivated");
     }
 
@@ -124,15 +141,5 @@ public class ConfigAdminMetricsComponent implements ConfigurationListener {
             case ConfigurationEvent.CM_LOCATION_CHANGED -> "CM_LOCATION_CHANGED";
             default -> "UNKNOWN(" + type + ")";
         };
-    }
-
-    private static void closeQuietly(AutoCloseable closeable) {
-        if (closeable != null) {
-            try {
-                closeable.close();
-            } catch (Exception e) {
-                // ignore
-            }
-        }
     }
 }

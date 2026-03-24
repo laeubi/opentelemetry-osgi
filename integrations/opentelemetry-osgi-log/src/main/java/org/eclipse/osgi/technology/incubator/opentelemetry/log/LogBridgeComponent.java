@@ -1,15 +1,20 @@
 package org.eclipse.osgi.technology.incubator.opentelemetry.log;
 
 import java.time.Instant;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.osgi.framework.Bundle;
+import org.osgi.framework.Constants;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.log.LogEntry;
 import org.osgi.service.log.LogLevel;
 import org.osgi.service.log.LogListener;
@@ -44,27 +49,47 @@ public class LogBridgeComponent implements LogListener {
     private static final Logger LOG = Logger.getLogger(LogBridgeComponent.class.getName());
     private static final String INSTRUMENTATION_SCOPE = "org.eclipse.osgi.technology.incubator.opentelemetry.log";
 
-    @Reference
-    private OpenTelemetry openTelemetry;
-
-    @Reference
-    private LogReaderService logReaderService;
-
-    private io.opentelemetry.api.logs.Logger otelLogger;
+    private final io.opentelemetry.api.logs.Logger otelLogger;
+    private final ConcurrentHashMap<LogReaderService, Long> services = new ConcurrentHashMap<>();
 
     @Activate
-    public void activate() {
-        otelLogger = openTelemetry.getLogsBridge().loggerBuilder(INSTRUMENTATION_SCOPE)
+    public LogBridgeComponent(@Reference OpenTelemetry openTelemetry) {
+        this.otelLogger = openTelemetry.getLogsBridge().loggerBuilder(INSTRUMENTATION_SCOPE)
             .setInstrumentationVersion("0.1.0")
             .build();
-
-        logReaderService.addLogListener(this);
         LOG.info("LogBridgeComponent activated — forwarding OSGi Log Service to OpenTelemetry");
+    }
+
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
+    void bindLogReaderService(LogReaderService service, Map<String, Object> properties) {
+        long serviceId = (Long) properties.get(Constants.SERVICE_ID);
+        services.put(service, serviceId);
+        service.addLogListener(this);
+        LOG.info("Bound LogReaderService service.id=" + serviceId);
+    }
+
+    void unbindLogReaderService(LogReaderService service) {
+        Long serviceId = services.remove(service);
+        try {
+            service.removeLogListener(this);
+        } catch (Exception e) {
+            // service may already be gone
+        }
+        if (serviceId != null) {
+            LOG.info("Unbound LogReaderService service.id=" + serviceId);
+        }
     }
 
     @Deactivate
     public void deactivate() {
-        logReaderService.removeLogListener(this);
+        services.forEach((service, serviceId) -> {
+            try {
+                service.removeLogListener(this);
+            } catch (Exception e) {
+                // service may already be gone
+            }
+        });
+        services.clear();
         LOG.info("LogBridgeComponent deactivated");
     }
 

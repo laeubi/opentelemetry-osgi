@@ -1,13 +1,16 @@
 package org.eclipse.osgi.technology.incubator.opentelemetry.jaxrs;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.osgi.framework.BundleContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.jaxrs.runtime.JaxrsServiceRuntime;
 import org.osgi.service.jaxrs.runtime.dto.ApplicationDTO;
 import org.osgi.service.jaxrs.runtime.dto.BaseApplicationDTO;
@@ -23,8 +26,9 @@ import io.opentelemetry.api.logs.Severity;
 /**
  * Emits a structured inventory of the JAX-RS Whiteboard runtime as OpenTelemetry log records.
  * <p>
- * On activation, queries the {@link JaxrsServiceRuntime} DTO and emits a full snapshot
- * showing the hierarchy: applications → resources → resource methods, and extensions.
+ * Dynamically tracks all available {@link JaxrsServiceRuntime} instances and emits
+ * a full snapshot on each bind showing the hierarchy: applications → resources →
+ * resource methods, and extensions.
  * <p>
  * Log record attributes include:
  * <ul>
@@ -42,32 +46,43 @@ public class JaxrsWhiteboardInventoryComponent {
     private static final Logger LOG = Logger.getLogger(JaxrsWhiteboardInventoryComponent.class.getName());
     private static final String INSTRUMENTATION_SCOPE = "org.eclipse.osgi.technology.incubator.opentelemetry.jaxrs.inventory";
 
-    @Reference
-    private OpenTelemetry openTelemetry;
-
-    @Reference
-    private JaxrsServiceRuntime jaxrsServiceRuntime;
-
-    private io.opentelemetry.api.logs.Logger otelLogger;
+    private final OpenTelemetry openTelemetry;
+    private final ConcurrentHashMap<JaxrsServiceRuntime, Long> services = new ConcurrentHashMap<>();
 
     @Activate
-    public void activate(BundleContext context) {
-        this.otelLogger = openTelemetry.getLogsBridge().loggerBuilder(INSTRUMENTATION_SCOPE)
+    public JaxrsWhiteboardInventoryComponent(@Reference OpenTelemetry openTelemetry) {
+        this.openTelemetry = openTelemetry;
+        LOG.info("JaxrsWhiteboardInventoryComponent activated");
+    }
+
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
+    void bindJaxrsServiceRuntime(JaxrsServiceRuntime runtime, Map<String, Object> properties) {
+        long serviceId = (Long) properties.getOrDefault("service.id", 0L);
+        services.put(runtime, serviceId);
+
+        io.opentelemetry.api.logs.Logger otelLogger = openTelemetry.getLogsBridge().loggerBuilder(INSTRUMENTATION_SCOPE)
             .setInstrumentationVersion("0.1.0")
             .build();
+        emitSnapshot(runtime, otelLogger);
+        LOG.info("Bound JaxrsServiceRuntime (service.id=" + serviceId + ") — inventory emitted");
+    }
 
-        emitSnapshot();
-        LOG.info("JaxrsWhiteboardInventoryComponent activated — JAX-RS Whiteboard inventory emitted");
+    void unbindJaxrsServiceRuntime(JaxrsServiceRuntime runtime) {
+        Long serviceId = services.remove(runtime);
+        if (serviceId != null) {
+            LOG.info("Unbound JaxrsServiceRuntime (service.id=" + serviceId + ")");
+        }
     }
 
     @Deactivate
-    public void deactivate() {
+    void deactivate() {
+        services.clear();
         LOG.info("JaxrsWhiteboardInventoryComponent deactivated");
     }
 
-    private void emitSnapshot() {
+    private void emitSnapshot(JaxrsServiceRuntime runtime, io.opentelemetry.api.logs.Logger otelLogger) {
         try {
-            RuntimeDTO dto = jaxrsServiceRuntime.getRuntimeDTO();
+            RuntimeDTO dto = runtime.getRuntimeDTO();
             int appCount = dto.applicationDTOs != null ? dto.applicationDTOs.length : 0;
             if (dto.defaultApplication != null) appCount++;
 
@@ -79,21 +94,22 @@ public class JaxrsWhiteboardInventoryComponent {
                 .emit();
 
             if (dto.defaultApplication != null) {
-                emitApplicationInventory(dto.defaultApplication, true);
+                emitApplicationInventory(dto.defaultApplication, true, otelLogger);
             }
             if (dto.applicationDTOs != null) {
                 for (ApplicationDTO app : dto.applicationDTOs) {
-                    emitApplicationInventory(app, false);
+                    emitApplicationInventory(app, false, otelLogger);
                 }
             }
 
-            emitFailedRegistrations(dto);
+            emitFailedRegistrations(dto, otelLogger);
         } catch (Exception e) {
             LOG.log(Level.WARNING, "Failed to emit JAX-RS Whiteboard inventory", e);
         }
     }
 
-    private void emitApplicationInventory(BaseApplicationDTO app, boolean isDefault) {
+    private void emitApplicationInventory(BaseApplicationDTO app, boolean isDefault,
+            io.opentelemetry.api.logs.Logger otelLogger) {
         int resourceCount = app.resourceDTOs != null ? app.resourceDTOs.length : 0;
         int extensionCount = app.extensionDTOs != null ? app.extensionDTOs.length : 0;
         long methodCount = 0;
@@ -124,7 +140,7 @@ public class JaxrsWhiteboardInventoryComponent {
 
         if (app.resourceDTOs != null) {
             for (ResourceDTO resource : app.resourceDTOs) {
-                emitResourceInventory(appName, appBase, resource);
+                emitResourceInventory(appName, appBase, resource, otelLogger);
             }
         }
 
@@ -146,7 +162,8 @@ public class JaxrsWhiteboardInventoryComponent {
         }
     }
 
-    private void emitResourceInventory(String appName, String appBase, ResourceDTO resource) {
+    private static void emitResourceInventory(String appName, String appBase, ResourceDTO resource,
+            io.opentelemetry.api.logs.Logger otelLogger) {
         int methodCount = resource.resourceMethods != null ? resource.resourceMethods.length : 0;
 
         otelLogger.logRecordBuilder()
@@ -178,7 +195,7 @@ public class JaxrsWhiteboardInventoryComponent {
         }
     }
 
-    private void emitFailedRegistrations(RuntimeDTO dto) {
+    private static void emitFailedRegistrations(RuntimeDTO dto, io.opentelemetry.api.logs.Logger otelLogger) {
         long failedCount = 0;
         if (dto.failedApplicationDTOs != null) failedCount += dto.failedApplicationDTOs.length;
         if (dto.failedResourceDTOs != null) failedCount += dto.failedResourceDTOs.length;

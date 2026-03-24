@@ -3,15 +3,20 @@ package org.eclipse.osgi.technology.incubator.opentelemetry.cm;
 import java.io.IOException;
 import java.util.Dictionary;
 import java.util.Enumeration;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.osgi.framework.Constants;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
@@ -36,22 +41,40 @@ public class ConfigAdminInventoryComponent {
     private static final Logger LOG = Logger.getLogger(ConfigAdminInventoryComponent.class.getName());
     private static final String INSTRUMENTATION_SCOPE = "org.eclipse.osgi.technology.incubator.opentelemetry.cm.inventory";
 
-    @Reference
-    private OpenTelemetry openTelemetry;
-
-    @Reference
-    private ConfigurationAdmin configAdmin;
+    private final io.opentelemetry.api.logs.Logger otelLogger;
+    private final ConcurrentHashMap<ConfigurationAdmin, Long> services = new ConcurrentHashMap<>();
 
     @Activate
-    public void activate() {
-        LOG.info("ConfigAdminInventoryComponent activated — logging configuration inventory");
+    public ConfigAdminInventoryComponent(@Reference OpenTelemetry openTelemetry) {
+        this.otelLogger = openTelemetry.getLogsBridge().loggerBuilder(INSTRUMENTATION_SCOPE)
+            .setInstrumentationVersion("0.1.0")
+            .build();
+        LOG.info("ConfigAdminInventoryComponent activated");
+    }
 
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
+    void bindConfigurationAdmin(ConfigurationAdmin configAdmin, Map<String, Object> properties) {
+        long serviceId = (Long) properties.get(Constants.SERVICE_ID);
+        services.put(configAdmin, serviceId);
+        emitInventory(configAdmin, serviceId);
+        LOG.info("Bound ConfigurationAdmin service.id=" + serviceId + " — logging configuration inventory");
+    }
+
+    void unbindConfigurationAdmin(ConfigurationAdmin configAdmin) {
+        Long serviceId = services.remove(configAdmin);
+        if (serviceId != null) {
+            LOG.info("Unbound ConfigurationAdmin service.id=" + serviceId);
+        }
+    }
+
+    @Deactivate
+    public void deactivate() {
+        services.clear();
+        LOG.info("ConfigAdminInventoryComponent deactivated");
+    }
+
+    private void emitInventory(ConfigurationAdmin configAdmin, long serviceId) {
         try {
-            io.opentelemetry.api.logs.Logger otelLogger =
-                openTelemetry.getLogsBridge().loggerBuilder(INSTRUMENTATION_SCOPE)
-                    .setInstrumentationVersion("0.1.0")
-                    .build();
-
             Configuration[] configs = configAdmin.listConfigurations(null);
             int total = configs != null ? configs.length : 0;
 
@@ -64,7 +87,6 @@ public class ConfigAdminInventoryComponent {
                 }
             }
 
-            // Summary log
             otelLogger.logRecordBuilder()
                 .setSeverity(Severity.INFO)
                 .setBody("Configuration inventory: " + total + " configurations ("
@@ -72,12 +94,12 @@ public class ConfigAdminInventoryComponent {
                 .setAttribute(AttributeKey.longKey("cm.configuration.count"), (long) total)
                 .setAttribute(AttributeKey.longKey("cm.factory.count"), factoryCount)
                 .setAttribute(AttributeKey.longKey("cm.singleton.count"), (long) total - factoryCount)
+                .setAttribute(AttributeKey.longKey("osgi.service.id"), serviceId)
                 .emit();
 
-            // Detailed per-configuration logs
             if (configs != null) {
                 for (Configuration config : configs) {
-                    emitConfigLog(otelLogger, config);
+                    emitConfigLog(config, serviceId);
                 }
             }
 
@@ -87,12 +109,7 @@ public class ConfigAdminInventoryComponent {
         }
     }
 
-    @Deactivate
-    public void deactivate() {
-        LOG.info("ConfigAdminInventoryComponent deactivated");
-    }
-
-    private void emitConfigLog(io.opentelemetry.api.logs.Logger otelLogger, Configuration config) {
+    private void emitConfigLog(Configuration config, long serviceId) {
         String pid = config.getPid();
         boolean isFactory = config.getFactoryPid() != null;
 
@@ -125,6 +142,7 @@ public class ConfigAdminInventoryComponent {
             builder.setAttribute(AttributeKey.stringKey("cm.property.keys"), keys.toString());
         }
 
+        builder.setAttribute(AttributeKey.longKey("osgi.service.id"), serviceId);
         builder.emit();
     }
 }

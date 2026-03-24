@@ -333,6 +333,18 @@ These metrics power the Traces Drilldown app's span rate, error rate, and durati
 - **Scope**: OSGi annotations are `provided` scope (processed at build time by bnd)
 - **Package-info**: Each package has a `package-info.java` with Javadoc (Javadoc comment comes before the package declaration)
 
+### Dynamic Service Reference Pattern
+
+All integration components follow a consistent pattern for domain service references:
+
+- **Constructor injection for OpenTelemetry**: `@Activate public ClassName(@Reference OpenTelemetry openTelemetry)` ensures OTel is available before any dynamic bindings arrive
+- **Dynamic MULTIPLE references**: Domain services (ConfigurationAdmin, ServiceComponentRuntime, HealthCheckExecutor, LogReaderService, HttpServiceRuntime, JaxrsServiceRuntime) use `@Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)` with `bind<Service>` / `unbind<Service>` methods
+- **ConcurrentHashMap tracking**: The service object itself is the map key; values are either state records (for metrics components with gauges to close) or Long (service.id, for inventory/listener components)
+- **State records**: Metrics components use package-private top-level records implementing `AutoCloseable` (e.g., `ScrMetricsState`, `ConfigAdminMetricsState`) holding `ObservableLongGauge` fields and a `serviceId` for OTel attributes
+- **Distinguishing attribute**: `AttributeKey.longKey("osgi.service.id")` is added to all OTel metric recordings so multiple instances of the same service type produce separate time series
+- **@Deactivate cleanup**: Iterates remaining map entries and closes/cleans up as a safety net (DS calls unbind before deactivate, but cleanup is good practice)
+- **Shared instruments**: Synchronous instruments (LongCounter) can be shared across service instances since OTel SDK deduplicates them; only async gauges (ObservableLongGauge with callbacks) need per-service registration
+
 ### OpenTelemetry
 
 - **API vs SDK**: Integration and demo bundles depend only on `opentelemetry-api`; only the runtime bundle depends on `opentelemetry-sdk`
@@ -808,4 +820,7 @@ curl -s 'http://localhost:3000/render/d/osgi-overview/osgi-observability-overvie
 - **HTTP Whiteboard javax vs Jakarta**: Karaf 4.4.7 uses pre-Jakarta APIs. The correct Maven artifact is `org.osgi:org.osgi.service.http.whiteboard:1.1.1` (NOT `org.osgi.service.servlet.runtime` which is Jakarta namespace). Pax Web provides `HttpServiceRuntime` and exports the `org.osgi.service.http.runtime` packages.
 - **JAX-RS Whiteboard optional imports**: The JAX-RS API bundle (`org.osgi:org.osgi.service.jaxrs:1.0.0`) has `Require-Capability: osgi.contract=JavaJAXRS` and imports `javax.ws.rs.*`. The integration module uses `resolution:=optional` for all JAX-RS runtime imports to resolve without a full JAX-RS Whiteboard runtime installed.
 - **JAX-RS Whiteboard not in Karaf 4.4.7**: Standard Karaf does not include a JAX-RS Whiteboard implementation. The integration sits idle. Users need to install Apache Aries JAX-RS Whiteboard or similar for it to activate.
+- **Dynamic references use service as map key**: Integration components use `ConcurrentHashMap<ServiceType, State>` with the service object itself as key (not service.id). The service.id is only used as an OTel attribute for distinguishing time series in dashboards. This matches OSGi service identity semantics.
+- **Constructor injection for OpenTelemetry**: The `OpenTelemetry` reference must use constructor injection (`@Activate public Ctor(@Reference OpenTelemetry otel)`) to guarantee it's available before any dynamic `bind<Service>` methods are called by DS. Field injection with dynamic bindings can cause NPE if bind is called before activate.
+- **Multiple async gauge registrations**: Calling `meter.gaugeBuilder("name").buildWithCallback()` multiple times with the same metric name creates separate callback registrations. Each produces its own time series distinguished by the `osgi.service.id` attribute value. All registrations must be closed independently on unbind.
 - **HTTP Whiteboard Pax Web contexts**: Pax Web registers two default servlet contexts: `default` (Whiteboard pattern) and `org.osgi.service.http` (legacy HTTP Service bridge). Dashboard uses `context.name` attribute for repeating panels.

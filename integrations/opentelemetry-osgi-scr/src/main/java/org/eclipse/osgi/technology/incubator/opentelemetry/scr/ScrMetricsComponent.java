@@ -1,15 +1,18 @@
 package org.eclipse.osgi.technology.incubator.opentelemetry.scr;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.osgi.framework.Constants;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.component.runtime.ServiceComponentRuntime;
 import org.osgi.service.component.runtime.dto.ComponentConfigurationDTO;
 import org.osgi.service.component.runtime.dto.ComponentDescriptionDTO;
@@ -34,43 +37,46 @@ import io.opentelemetry.api.metrics.ObservableLongGauge;
  *   <li>{@code osgi.scr.reference.satisfied} — count of satisfied references across all components</li>
  *   <li>{@code osgi.scr.reference.unsatisfied} — count of unsatisfied references across all components</li>
  * </ul>
+ * <p>
+ * Supports dynamic 1..n bindings of {@link ServiceComponentRuntime} services,
+ * creating a separate set of gauges per service instance distinguished by the
+ * {@code osgi.service.id} attribute.
  */
 @Component(immediate = true)
 public class ScrMetricsComponent {
 
     private static final Logger LOG = Logger.getLogger(ScrMetricsComponent.class.getName());
     private static final String INSTRUMENTATION_SCOPE = "org.eclipse.osgi.technology.incubator.opentelemetry.scr";
+    private static final AttributeKey<Long> SERVICE_ID_KEY = AttributeKey.longKey("osgi.service.id");
 
-    @Reference
-    private OpenTelemetry openTelemetry;
-
-    @Reference
-    private ServiceComponentRuntime scr;
-
-    private ObservableLongGauge componentCountGauge;
-    private ObservableLongGauge componentStatesGauge;
-    private ObservableLongGauge activeGauge;
-    private ObservableLongGauge satisfiedRefGauge;
-    private ObservableLongGauge unsatisfiedRefGauge;
+    private final OpenTelemetry openTelemetry;
+    private final ConcurrentHashMap<ServiceComponentRuntime, ScrMetricsState> services = new ConcurrentHashMap<>();
 
     @Activate
-    public void activate() {
-        LOG.info("ScrMetricsComponent activated — registering SCR metrics");
+    public ScrMetricsComponent(@Reference OpenTelemetry openTelemetry) {
+        this.openTelemetry = openTelemetry;
+        LOG.info("ScrMetricsComponent activated");
+    }
+
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
+    void bindServiceComponentRuntime(ServiceComponentRuntime scr, Map<String, Object> properties) {
+        long serviceId = (Long) properties.get(Constants.SERVICE_ID);
         Meter meter = openTelemetry.getMeter(INSTRUMENTATION_SCOPE);
 
-        componentCountGauge = meter.gaugeBuilder("osgi.scr.component.count")
+        ObservableLongGauge componentCountGauge = meter.gaugeBuilder("osgi.scr.component.count")
             .setDescription("Total number of registered DS component descriptions")
             .setUnit("{components}")
             .ofLongs()
             .buildWithCallback(measurement -> {
                 try {
-                    measurement.record(scr.getComponentDescriptionDTOs().size());
+                    measurement.record(scr.getComponentDescriptionDTOs().size(),
+                        Attributes.of(SERVICE_ID_KEY, serviceId));
                 } catch (Exception e) {
                     LOG.log(Level.FINE, "Failed to read component count", e);
                 }
             });
 
-        componentStatesGauge = meter.gaugeBuilder("osgi.scr.component.states")
+        ObservableLongGauge componentStatesGauge = meter.gaugeBuilder("osgi.scr.component.states")
             .setDescription("Number of DS component configurations per state")
             .setUnit("{components}")
             .ofLongs()
@@ -85,7 +91,8 @@ public class ScrMetricsComponent {
                     }
                     stateCounts.forEach((state, count) ->
                         measurement.record(count, Attributes.of(
-                            AttributeKey.stringKey("osgi.scr.state"), state
+                            AttributeKey.stringKey("osgi.scr.state"), state,
+                            SERVICE_ID_KEY, serviceId
                         ))
                     );
                 } catch (Exception e) {
@@ -93,7 +100,7 @@ public class ScrMetricsComponent {
                 }
             });
 
-        activeGauge = meter.gaugeBuilder("osgi.scr.component.active")
+        ObservableLongGauge activeGauge = meter.gaugeBuilder("osgi.scr.component.active")
             .setDescription("Number of active DS component configurations")
             .setUnit("{components}")
             .ofLongs()
@@ -107,13 +114,13 @@ public class ScrMetricsComponent {
                             }
                         }
                     }
-                    measurement.record(active);
+                    measurement.record(active, Attributes.of(SERVICE_ID_KEY, serviceId));
                 } catch (Exception e) {
                     LOG.log(Level.FINE, "Failed to read active component count", e);
                 }
             });
 
-        satisfiedRefGauge = meter.gaugeBuilder("osgi.scr.reference.satisfied")
+        ObservableLongGauge satisfiedRefGauge = meter.gaugeBuilder("osgi.scr.reference.satisfied")
             .setDescription("Total number of satisfied service references across all components")
             .setUnit("{references}")
             .ofLongs()
@@ -127,13 +134,13 @@ public class ScrMetricsComponent {
                             }
                         }
                     }
-                    measurement.record(count);
+                    measurement.record(count, Attributes.of(SERVICE_ID_KEY, serviceId));
                 } catch (Exception e) {
                     LOG.log(Level.FINE, "Failed to read satisfied references", e);
                 }
             });
 
-        unsatisfiedRefGauge = meter.gaugeBuilder("osgi.scr.reference.unsatisfied")
+        ObservableLongGauge unsatisfiedRefGauge = meter.gaugeBuilder("osgi.scr.reference.unsatisfied")
             .setDescription("Total number of unsatisfied service references across all components")
             .setUnit("{references}")
             .ofLongs()
@@ -147,22 +154,30 @@ public class ScrMetricsComponent {
                             }
                         }
                     }
-                    measurement.record(count);
+                    measurement.record(count, Attributes.of(SERVICE_ID_KEY, serviceId));
                 } catch (Exception e) {
                     LOG.log(Level.FINE, "Failed to read unsatisfied references", e);
                 }
             });
 
-        LOG.info("ScrMetricsComponent — SCR metrics registered");
+        ScrMetricsState state = new ScrMetricsState(serviceId, componentCountGauge,
+            componentStatesGauge, activeGauge, satisfiedRefGauge, unsatisfiedRefGauge);
+        services.put(scr, state);
+        LOG.info("ScrMetricsComponent — bound ServiceComponentRuntime (service.id=" + serviceId + ")");
+    }
+
+    void unbindServiceComponentRuntime(ServiceComponentRuntime scr) {
+        ScrMetricsState state = services.remove(scr);
+        if (state != null) {
+            state.close();
+            LOG.info("ScrMetricsComponent — unbound ServiceComponentRuntime (service.id=" + state.serviceId() + ")");
+        }
     }
 
     @Deactivate
     public void deactivate() {
-        closeQuietly(componentCountGauge);
-        closeQuietly(componentStatesGauge);
-        closeQuietly(activeGauge);
-        closeQuietly(satisfiedRefGauge);
-        closeQuietly(unsatisfiedRefGauge);
+        services.values().forEach(ScrMetricsState::close);
+        services.clear();
         LOG.info("ScrMetricsComponent deactivated");
     }
 
@@ -177,7 +192,7 @@ public class ScrMetricsComponent {
         };
     }
 
-    private static void closeQuietly(AutoCloseable closeable) {
+    static void closeQuietly(AutoCloseable closeable) {
         if (closeable != null) {
             try {
                 closeable.close();
