@@ -183,9 +183,12 @@ Trace table with span names and streaming structured logs from Loki.
 
 ![Recent Traces](doc/images/grafana-recent-traces.png)
 
+![Live Logs](doc/images/grafana-live-logs.png)
+
 ### JVM MXBeans Dashboard
 
-A separate **JVM MXBeans Overview** dashboard (navigate to **Dashboards → OpenTelemetry OSGi → JVM MXBeans Overview**) provides deep JVM runtime visibility:
+A separate **JVM MXBeans Overview** dashboard (navigate to **Dashboards → OpenTelemetry OSGi → JVM MXBeans Overview**) provides deep JVM runtime visibility.
+See the [MXBeans module README](integrations/opentelemetry-osgi-mxbeans/README.md) for the full set of metrics and all dashboard sections.
 
 ![JVM Memory](doc/images/grafana-jvm-memory.png)
 
@@ -197,8 +200,8 @@ A separate **JVM MXBeans Overview** dashboard (navigate to **Dashboards → Open
 
 Use the **Explore** view (compass icon in the sidebar) to query each backend directly:
 
-- **Traces** — select the *Tempo* datasource: trace names include `osgi.bundle.resolve`, `osgi.bundle.refresh`, `osgi.service.bind`, `osgi.service.lookup`, `osgi.scr.healthcheck`, `osgi.hc.execution`, `osgi.cm.updated`, `osgi.cm.deleted`
-- **Metrics** — select the *Prometheus* datasource: `osgi_bundle_count`, `osgi_bundle_active`, `osgi_bundle_states`, `osgi_service_count`, `osgi_scr_component_count`, `osgi_scr_component_states`, `osgi_hc_count`, `osgi_hc_status`, `osgi_cm_configuration_count`, `osgi_cm_factory_count`, `osgi_log_entries_total`, `osgi_demo_operations_total`, `http_server_requests_total`, `http_server_duration_milliseconds`, `jvm_memory_used_bytes`, `jvm_cpu_process_load`, `jvm_threads_live`, `jvm_gc_collection_count`
+- **Traces** — select the *Tempo* datasource: trace names include `osgi.bundle.resolve`, `osgi.service.bind`, `osgi.scr.healthcheck`, `osgi.hc.execution`, `osgi.cm.updated`, `osgi.typedevent.deliver`, `scr.activate`, `GET /demo`, `JDBC executeQuery`, `GET /api/rest/status`
+- **Metrics** — select the *Prometheus* datasource: `osgi_bundle_count`, `osgi_service_count`, `osgi_scr_component_states`, `osgi_hc_status`, `osgi_cm_configuration_count`, `osgi_log_entries_total`, `osgi_typedevent_events_total`, `http_server_requests_total`, `db_client_operations_total`, `jaxrs_server_requests_total`, `scr_lifecycle_operations_total`, `jvm_memory_used_bytes`, `jvm_cpu_process_load`
 - **Logs** — select the *Loki* datasource: query `{service_name="osgi-demo"}` for bundle/service inventory, SCR component state, and forwarded OSGi log entries
 
 ## Technology Stack

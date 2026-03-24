@@ -651,6 +651,8 @@ curl -s 'http://localhost:3000/render/d/osgi-overview/osgi-observability-overvie
 | `grafana-config-admin.png` | 🔧 Config Admin (configs, events) |
 | `grafana-typed-events.png` | 📨 Typed Events (events by topic, handler counts) |
 | `grafana-http-weaving.png` | 🌐 HTTP Servlet / Weaving (requests, latency) |
+| `grafana-jdbc-weaving.png` | 🗄️ JDBC / Weaving (operations, duration) |
+| `grafana-jaxrs-weaving.png` | 🔗 JAX-RS / Weaving (requests, routes) |
 | `grafana-scr-lifecycle.png` | ⚙️ SCR Lifecycle / Weaving (activations, durations) |
 | `grafana-recent-traces.png` | 🔍 Recent Traces (trace table) |
 | `grafana-live-logs.png` | 📝 Live Logs (Loki stream) |
@@ -665,11 +667,13 @@ curl -s 'http://localhost:3000/render/d/osgi-overview/osgi-observability-overvie
 
 ### README Screenshot Policy
 
-- The main `README.md` includes per-section screenshots in the dashboard section.
-- Subfolder READMEs (`integrations/`, `weaving/`, `demo/`) include context-specific dashboard screenshots relevant to their modules.
-- Screenshots use relative paths (`../doc/images/grafana-*.png` from subfolders, `doc/images/grafana-*.png` from root).
-- When adding new dashboard rows or integrations, regenerate and update the relevant screenshots.
-- When modifying dashboard panel layouts, update the crop coordinates in the screenshot generation script.
+- **Per-module READMEs** contain detailed documentation with telemetry tables, component descriptions, and dashboard screenshots for that specific module
+- **Subfolder READMEs** (`integrations/`, `weaving/`, `demo/`, `core/`, `incubator/`) are short summaries with a module table linking to each module's README
+- **Root `README.md`** includes per-section screenshots in the dashboard section for a project-wide overview
+- Module README image paths use `../../doc/images/grafana-*.png` (two levels deep)
+- Subfolder READMEs no longer contain detailed module information or screenshots — they delegate to module READMEs
+- When adding a new module, create a `README.md` in the module directory with screenshots and update the subfolder README's module table
+- When adding new dashboard rows, regenerate and update the relevant screenshots in both the root and module READMEs
 
 ## Common Pitfalls
 
