@@ -2390,13 +2390,287 @@
     },
     {
       "type": "row",
+      "title": "\u2699\ufe0f SCR Lifecycle (Weaving)",
+      "id": 56,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 90
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Lifecycle Operations",
+      "id": 57,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 91
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(scr_lifecycle_operations_total)",
+          "legendFormat": "Total",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Component Activations",
+      "id": 58,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 91
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(scr_lifecycle_operations_total{scr_lifecycle_action=\"activate\"})",
+          "legendFormat": "Activations",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Avg Activation Duration",
+      "id": 59,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 91
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 200
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(scr_lifecycle_duration_milliseconds_sum{scr_lifecycle_action=\"activate\"}) / sum(scr_lifecycle_duration_milliseconds_count{scr_lifecycle_action=\"activate\"})",
+          "legendFormat": "Avg ms",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "piechart",
+      "title": "Lifecycle by Action",
+      "id": 60,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 91
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by(scr_lifecycle_action)(scr_lifecycle_operations_total)",
+          "legendFormat": "{{scr_lifecycle_action}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "title": "Activation Duration by Component",
+      "id": 61,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 95
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "orange",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "showUnfilled": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "scr_lifecycle_duration_milliseconds_sum{scr_lifecycle_action=\"activate\"} / scr_lifecycle_duration_milliseconds_count{scr_lifecycle_action=\"activate\"}",
+          "legendFormat": "{{scr_component_class}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "row",
       "title": "\ud83c\udf10 HTTP Servlet (Weaving)",
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 91
+        "y": 103
       },
       "id": 45
     },
@@ -2407,7 +2681,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 92
+        "y": 104
       },
       "datasource": {
         "type": "prometheus",
@@ -2457,7 +2731,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 92
+        "y": 104
       },
       "datasource": {
         "type": "prometheus",
@@ -2511,7 +2785,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 92
+        "y": 104
       },
       "datasource": {
         "type": "prometheus",
@@ -2554,7 +2828,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 96
+        "y": 108
       },
       "datasource": {
         "type": "prometheus",
@@ -2616,7 +2890,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 100
+        "y": 112
       },
       "datasource": {
         "type": "tempo",
@@ -2646,7 +2920,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 104
+        "y": 116
       },
       "datasource": {
         "type": "prometheus",
@@ -2706,7 +2980,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 113
+        "y": 125
       },
       "collapsed": false,
       "id": 52
@@ -2718,7 +2992,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 114
+        "y": 126
       },
       "datasource": {
         "type": "tempo",
@@ -2778,7 +3052,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 124
+        "y": 136
       },
       "collapsed": false,
       "id": 54
@@ -2790,7 +3064,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 125
+        "y": 137
       },
       "datasource": {
         "type": "loki",

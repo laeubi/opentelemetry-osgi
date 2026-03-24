@@ -20,5 +20,6 @@
         <module>opentelemetry-osgi-weaver-servlet</module>
         <module>opentelemetry-osgi-weaver-jdbc</module>
         <module>opentelemetry-osgi-weaver-jaxrs</module>
+        <module>opentelemetry-osgi-weaver-scr</module>
     </modules>
 </project>

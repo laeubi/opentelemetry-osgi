@@ -19,7 +19,7 @@ OpenTelemetry defines three core **signals**:
 opentelemetry-osgi/
 ├── core/                    — Core runtime providing OpenTelemetry SDK as an OSGi service
 ├── integrations/            — Bridges for OSGi subsystems (framework, SCR, log)
-├── weaving/                 — OSGi WeavingHook based bytecode instrumentation (servlets, JDBC, JAX-RS)
+├── weaving/                 — OSGi WeavingHook based bytecode instrumentation (servlets, JDBC, JAX-RS, SCR lifecycle)
 ├── demo/                    — Demonstration bundles showcasing the integration
 ├── features/                — Apache Karaf feature descriptors for deployment
 ├── incubator/               — Experimental modules (agent extension)
@@ -31,7 +31,7 @@ opentelemetry-osgi/
 |---|---|---|
 | [`core/`](core/README.md) | OpenTelemetry SDK runtime as an OSGi service | [Read more →](core/README.md) |
 | [`integrations/`](integrations/README.md) | Framework, SCR, Log Service, Health Check, Config Admin, MXBeans, and Typed Event bridges to OpenTelemetry | [Read more →](integrations/README.md) |
-| [`weaving/`](weaving/README.md) | OSGi WeavingHook based instrumentation for HTTP servlets, JDBC, and JAX-RS with ASM | [Read more →](weaving/README.md) |
+| [`weaving/`](weaving/README.md) | OSGi WeavingHook based instrumentation for HTTP servlets, JDBC, JAX-RS, and SCR lifecycle with ASM | [Read more →](weaving/README.md) |
 | [`demo/`](demo/README.md) | Demo bundle generating sample traces, metrics, and logs | [Read more →](demo/README.md) |
 | [`features/`](features/README.md) | Karaf features for runtime, integrations, and demo deployment | [Read more →](features/README.md) |
 | [`incubator/`](incubator/README.md) | Java Agent extension for bytecode-level OSGi instrumentation | [Read more →](incubator/README.md) |
@@ -146,6 +146,12 @@ Configuration counts, factory configurations, event rate over time.
 Events published per topic, event rate, handler counts (typed vs untyped), topic prefix distribution.
 
 ![Typed Events](doc/images/grafana-typed-events.png)
+
+#### ⚙️ SCR Lifecycle (Weaving)
+
+DS component activation/deactivation timing, per-component duration breakdown, lifecycle action distribution.
+
+![SCR Lifecycle Weaving](doc/images/grafana-scr-lifecycle.png)
 
 #### 🌐 HTTP Servlet (Weaving)
 

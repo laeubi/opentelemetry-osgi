@@ -37,6 +37,13 @@ opentelemetry-osgi-weaver-jaxrs (fragment bundle)
 ├── JaxRsMethodVisitor          — ASM AdviceAdapter detecting HTTP method annotations
 ├── JaxRsInstrumentationHelper  — Static helper methods called from woven bytecode
 └── META-INF/services/...Weaver — Java SPI registration
+
+opentelemetry-osgi-weaver-scr (fragment bundle)
+├── ScrWeaver                   — Weaver implementation targeting DS component classes via XML parsing
+├── ScrClassVisitor             — ASM ClassVisitor identifying lifecycle-annotated methods
+├── ScrMethodVisitor            — ASM AdviceAdapter injecting instrumentation bytecode
+├── ScrInstrumentationHelper    — Static helper methods called from woven bytecode
+└── META-INF/services/...Weaver — Java SPI registration
 ```
 
 Fragment bundles share the host bundle's classloader, so plain Java `ServiceLoader` works without SPI Fly.
@@ -183,6 +190,40 @@ Span kind is `INTERNAL` (not `SERVER`) because the outer servlet span already ha
 #### Dashboard Preview
 
 ![JAX-RS Weaving Dashboard](../doc/images/grafana-jaxrs-weaving.png)
+
+### opentelemetry-osgi-weaver-scr
+
+A fragment bundle attaching to the weaving host that instruments Declarative Services component lifecycle methods.
+Inspired by [biz.aQute.trace](https://github.com/aQute-os/biz.aQute.osgi.util), the weaver parses the `Service-Component` manifest header and DS XML descriptors to identify component implementation classes, then instruments methods annotated with `@Activate`, `@Deactivate`, `@Modified`, and constructors with `@Activate`.
+
+#### Detection
+
+The weaver reads the `Service-Component` manifest header of each bundle, parses the referenced DS XML files, and extracts the `<implementation class="...">` attribute.
+Only classes listed in the DS XML are considered for weaving — this makes the detection highly efficient.
+Lifecycle methods are identified via their DS annotations (`org.osgi.service.component.annotations`).
+
+#### Generated Telemetry
+
+**Traces** (span kind: `INTERNAL`):
+
+| Attribute | Description |
+|---|---|
+| `scr.component.class` | Fully qualified component implementation class |
+| `scr.lifecycle.action` | Lifecycle action: activate, deactivate, modified, constructor |
+| `scr.method.name` | Method name (or `<init>` for constructors) |
+
+Span names follow the pattern `scr.<action> <SimpleClassName>` (e.g., `scr.activate HealthCheckInventoryComponent`).
+
+**Metrics**:
+
+| Metric | Type | Description |
+|---|---|---|
+| `scr.lifecycle.operations` | Counter | Total lifecycle operations by action and component |
+| `scr.lifecycle.duration` | Histogram | Lifecycle method duration in milliseconds |
+
+#### Dashboard Preview
+
+![SCR Lifecycle Weaving Dashboard](../doc/images/grafana-scr-lifecycle.png)
 
 ## Adding New Weavers
 

@@ -127,6 +127,14 @@ opentelemetry-osgi/
 │       │   └── JaxRsInstrumentationHelper.java      # Static helpers called from woven code
 │       └── src/main/resources/META-INF/services/
 │           └── ...opentelemetry.weaving.Weaver      # Java SPI registration
+│   └── opentelemetry-osgi-weaver-scr/      # Fragment: SCR lifecycle instrumentation
+│       ├── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/weaver/scr/
+│       │   ├── ScrWeaver.java                       # Weaver targeting DS component classes via XML parsing
+│       │   ├── ScrClassVisitor.java                 # ASM ClassVisitor identifying lifecycle annotations
+│       │   ├── ScrMethodVisitor.java                # ASM AdviceAdapter injecting instrumentation bytecode
+│       │   └── ScrInstrumentationHelper.java        # Static helpers called from woven code
+│       └── src/main/resources/META-INF/services/
+│           └── ...opentelemetry.weaving.Weaver      # Java SPI registration
 ├── doc/
 │   └── images/                      # Screenshots for README (generated via Grafana Image Renderer)
 ├── README.md
@@ -162,6 +170,7 @@ opentelemetry-osgi/
 | Servlet Weaver | `opentelemetry-osgi-weaver-servlet` | `weaving/` |
 | JDBC Weaver | `opentelemetry-osgi-weaver-jdbc` | `weaving/` |
 | JAX-RS Weaver | `opentelemetry-osgi-weaver-jaxrs` | `weaving/` |
+| SCR Lifecycle Weaver | `opentelemetry-osgi-weaver-scr` | `weaving/` |
 
 ### Aggregator POMs
 
@@ -577,6 +586,21 @@ It consists of a host bundle and fragment bundles discovered via Java SPI.
 - `JaxRsInstrumentationHelper` provides static methods called from woven bytecode (`onMethodEnter`, `onMethodExit`, `onMethodError`)
 - The instrumentation scope is `org.eclipse.osgi.technology.incubator.opentelemetry.weaver.jaxrs`
 
+### SCR Lifecycle Weaver Details
+
+- Inspired by [biz.aQute.trace](https://github.com/aQute-os/biz.aQute.osgi.util), uses DS XML parsing to identify component classes
+- Reads the `Service-Component` manifest header, parses XML files, extracts `<implementation class="...">` FQNs
+- Caches parsed component class names per bundle ID in a `ConcurrentHashMap` for efficient `canWeave()` checks
+- Handles wildcard patterns in `Service-Component` header (e.g., `OSGI-INF/*.xml`) via `Bundle.findEntries()`
+- Detects lifecycle methods via ASM annotation scanning: `@Activate`, `@Deactivate`, `@Modified` (retention CLASS)
+- Also instruments constructors annotated with `@Activate` (DS 1.4+ constructor injection)
+- Creates `INTERNAL` spans with `scr.component.class`, `scr.lifecycle.action`, `scr.method.name` attributes
+- Span names: `scr.<action> <SimpleClassName>` (e.g., `scr.activate HealthCheckInventoryComponent`)
+- Records `scr.lifecycle.operations` counter and `scr.lifecycle.duration` histogram metrics
+- `ScrInstrumentationHelper` provides static methods called from woven bytecode (`onLifecycleEnter`, `onLifecycleExit`, `onLifecycleError`)
+- The instrumentation scope is `org.eclipse.osgi.technology.incubator.opentelemetry.weaver.scr`
+- **Note**: Early component activations (before the OpenTelemetry service is registered) produce noop spans — this is the expected behavior of the `OpenTelemetryProxy`
+
 ### Build Differences from DS Modules
 
 - Uses `Bundle-Activator` header instead of DS annotations
@@ -625,6 +649,7 @@ curl -s 'http://localhost:3000/render/d/osgi-overview/osgi-observability-overvie
 | `grafana-config-admin.png` | 🔧 Config Admin (configs, events) |
 | `grafana-typed-events.png` | 📨 Typed Events (events by topic, handler counts) |
 | `grafana-http-weaving.png` | 🌐 HTTP Servlet / Weaving (requests, latency) |
+| `grafana-scr-lifecycle.png` | ⚙️ SCR Lifecycle / Weaving (activations, durations) |
 | `grafana-recent-traces.png` | 🔍 Recent Traces (trace table) |
 | `grafana-live-logs.png` | 📝 Live Logs (Loki stream) |
 | `grafana-jvm-mxbeans-overview.png` | Full JVM MXBeans dashboard |
@@ -670,6 +695,8 @@ curl -s 'http://localhost:3000/render/d/osgi-overview/osgi-observability-overvie
 - **Weaving SafeClassWriter**: All weavers must use `SafeClassWriter` (from the weaving host) instead of plain `ClassWriter` with `COMPUTE_FRAMES`. `SafeClassWriter` uses the target bundle's classloader (via `WovenClass.getBundleWiring().getClassLoader()`) for frame computation. Without this, complex classes (e.g., H2 `JdbcPreparedStatement`) cause `VerifyError: Bad type on operand stack` because incorrect type merging corrupts stack map frames in non-instrumented methods.
 - **Weaving start-level**: Weaving bundles must be at start-level 20 (before application bundles) in Karaf feature descriptors. Higher start-levels would cause application classes to load before the WeavingHook is registered.
 - **Weaving infrastructure exclusion**: The `OpenTelemetryWeavingHook` skips bundles from Felix, Karaf, Jetty, Pax, Aries, CXF, XBean, and Eclipse Equinox. When adding new infrastructure exclusions, update the `shouldSkipBundle()` method.
+- **SCR weaver DS XML parsing**: The SCR lifecycle weaver parses the `Service-Component` manifest header and DS XML files to identify component implementation classes. It caches results per bundle ID. Only classes listed in the XML are instrumented — this avoids parsing every class's bytecode for annotations.
+- **SCR weaver noop early activations**: Components that activate before the OpenTelemetry service is registered will have their lifecycle methods instrumented but produce noop spans (the `OpenTelemetryProxy` returns noop tracers/meters until the real service arrives). This is expected — the OTel runtime is itself a DS component, so there's an inherent chicken-and-egg ordering.
 - **MXBeans com.sun.management**: The MXBeans module uses `com.sun.management.OperatingSystemMXBean` for process/system CPU load and physical memory. This must be imported with `resolution:=optional` in bnd config, as it's a JVM-internal package that the OSGi resolver cannot satisfy. The code uses `instanceof` to degrade gracefully on non-HotSpot JVMs.
 - **MXBeans OTel unit naming**: OTel metrics with unit `By` (bytes) become `_bytes` in Prometheus, and `ms` (milliseconds) becomes `_milliseconds`. Dashboard queries must use the Prometheus-converted names (e.g., `jvm_memory_used_bytes` not `jvm_memory_used_By`).
 - **TypedEvent UntypedEventHandler marks events handled**: The Typed Event integration registers `UntypedEventHandler` services with `event.topics=*`. Per the spec, this makes ALL events "handled", so `UnhandledEventHandler` services registered by other bundles will never fire. This is a conscious trade-off for simpler implementation over `TypedEventMonitor`.

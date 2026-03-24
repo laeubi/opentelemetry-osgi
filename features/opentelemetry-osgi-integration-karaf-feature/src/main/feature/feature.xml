@@ -64,6 +64,8 @@
         <bundle start-level="20">mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-weaver-jdbc/${project.version}</bundle>
         <!-- JAX-RS Weaver: fragment attaching to weaving host for JAX-RS resource instrumentation -->
         <bundle start-level="20">mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-weaver-jaxrs/${project.version}</bundle>
+        <!-- SCR Lifecycle Weaver: fragment attaching to weaving host for DS component lifecycle instrumentation -->
+        <bundle start-level="20">mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-weaver-scr/${project.version}</bundle>
     </feature>
 
 </features>
