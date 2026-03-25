@@ -69,12 +69,6 @@
 
         <!-- Runtime: creates and publishes the OpenTelemetry SDK as an OSGi service -->
         <bundle>mvn:org.eclipse.osgi-technology.incubator/opentelemetry-osgi-runtime/${project.version}</bundle>
-
-        <!-- Default configuration: logging exporter -->
-        <config name="org.eclipse.osgi.technology.incubator.opentelemetry.runtime">
-            serviceName = osgi-application
-            exporterType = logging
-        </config>
     </feature>
 
 </features>

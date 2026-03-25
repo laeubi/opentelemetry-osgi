@@ -1,19 +1,23 @@
 /**
- * This package provides an OSGi runtime service that creates, configures, and publishes
- * an {@link io.opentelemetry.api.OpenTelemetry} SDK instance as an OSGi service.
+ * This package provides OSGi runtime services that create, configure, and publish
+ * {@link io.opentelemetry.api.OpenTelemetry} SDK instances as OSGi services.
  * <p>
- * In addition to the main {@link io.opentelemetry.api.OpenTelemetry} service, the individual
- * provider interfaces ({@link io.opentelemetry.api.trace.TracerProvider},
+ * Each supported exporter type has its own service component with a dedicated
+ * configuration PID, allowing multiple exporters to be active simultaneously:
+ * <ul>
+ *   <li>{@link org.eclipse.osgi.technology.incubator.opentelemetry.runtime.LoggingOpenTelemetryService}
+ *       — exports to stdout via {@code java.util.logging}</li>
+ *   <li>{@link org.eclipse.osgi.technology.incubator.opentelemetry.runtime.OtlpOpenTelemetryService}
+ *       — exports via OTLP/HTTP to a collector</li>
+ * </ul>
+ * <p>
+ * The individual provider interfaces ({@link io.opentelemetry.api.trace.TracerProvider},
  * {@link io.opentelemetry.api.metrics.MeterProvider},
  * {@link io.opentelemetry.api.logs.LoggerProvider},
  * {@link io.opentelemetry.context.propagation.ContextPropagators}) are registered as
- * separate OSGi services for direct consumption.
- * <p>
- * The service is managed as an OSGi Declarative Services component and is configurable
- * via OSGi ConfigAdmin.
+ * separate OSGi services with an {@code opentelemetry.name} property for filtering.
  *
- * @see org.eclipse.osgi.technology.incubator.opentelemetry.runtime.OpenTelemetryService
+ * @see org.eclipse.osgi.technology.incubator.opentelemetry.runtime.AbstractOpenTelemetryService
  * @see org.eclipse.osgi.technology.incubator.opentelemetry.runtime.OpenTelemetryProviderRegistration
- * @see org.eclipse.osgi.technology.incubator.opentelemetry.runtime.OpenTelemetryConfiguration
  */
 package org.eclipse.osgi.technology.incubator.opentelemetry.runtime;

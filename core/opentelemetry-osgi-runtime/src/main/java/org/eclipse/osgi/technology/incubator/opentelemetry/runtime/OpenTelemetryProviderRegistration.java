@@ -1,7 +1,11 @@
 package org.eclipse.osgi.technology.incubator.opentelemetry.runtime;
 
 import java.util.ArrayList;
+import java.util.Dictionary;
+import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 import org.osgi.framework.BundleContext;
@@ -10,6 +14,8 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.logs.LoggerProvider;
@@ -19,13 +25,17 @@ import io.opentelemetry.context.propagation.ContextPropagators;
 
 /**
  * Registers the individual OpenTelemetry provider interfaces as separate OSGi
- * services.
+ * services for each bound {@link OpenTelemetry} instance.
  * <p>
- * This allows consumers to depend directly on the specific provider they need
- * (e.g. {@link TracerProvider}, {@link MeterProvider}) instead of fetching the
- * full {@link OpenTelemetry} service and calling the corresponding getter.
+ * Each registered provider service includes an {@code opentelemetry.name} property
+ * derived from the originating service's {@code component.name}, allowing consumers
+ * to target a specific exporter type:
+ * <pre>
+ * &#64;Reference(target = "(opentelemetry.name=otlp-opentelemetry)")
+ * private TracerProvider tracerProvider;
+ * </pre>
  * <p>
- * The following services are registered:
+ * The following services are registered per {@link OpenTelemetry} instance:
  * <ul>
  *   <li>{@link TracerProvider}</li>
  *   <li>{@link MeterProvider}</li>
@@ -38,35 +48,63 @@ public class OpenTelemetryProviderRegistration {
 
     private static final Logger LOG = Logger.getLogger(OpenTelemetryProviderRegistration.class.getName());
 
-    @Reference
-    private OpenTelemetry openTelemetry;
-
-    private final List<ServiceRegistration<?>> registrations = new ArrayList<>();
+    private final BundleContext context;
+    private final ConcurrentHashMap<OpenTelemetry, List<ServiceRegistration<?>>> registrations = new ConcurrentHashMap<>();
 
     @Activate
-    public void activate(BundleContext context) {
-        registrations.add(context.registerService(
-                TracerProvider.class, openTelemetry.getTracerProvider(), null));
-        registrations.add(context.registerService(
-                MeterProvider.class, openTelemetry.getMeterProvider(), null));
-        registrations.add(context.registerService(
-                LoggerProvider.class, openTelemetry.getLogsBridge(), null));
-        registrations.add(context.registerService(
-                ContextPropagators.class, openTelemetry.getPropagators(), null));
+    public OpenTelemetryProviderRegistration(BundleContext context) {
+        this.context = context;
+        LOG.info("OpenTelemetryProviderRegistration activated");
+    }
 
-        LOG.info("Registered OpenTelemetry provider services: TracerProvider, MeterProvider, LoggerProvider, ContextPropagators");
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
+    void bindOpenTelemetry(OpenTelemetry openTelemetry, Map<String, Object> properties) {
+        String name = (String) properties.getOrDefault("component.name", "unknown");
+        Object ranking = properties.get("service.ranking");
+
+        Dictionary<String, Object> props = new Hashtable<>();
+        props.put("opentelemetry.name", name);
+        if (ranking != null) {
+            props.put("service.ranking", ranking);
+        }
+
+        List<ServiceRegistration<?>> regs = new ArrayList<>();
+        regs.add(context.registerService(TracerProvider.class, openTelemetry.getTracerProvider(), props));
+        regs.add(context.registerService(MeterProvider.class, openTelemetry.getMeterProvider(), props));
+        regs.add(context.registerService(LoggerProvider.class, openTelemetry.getLogsBridge(), props));
+        regs.add(context.registerService(ContextPropagators.class, openTelemetry.getPropagators(), props));
+
+        registrations.put(openTelemetry, regs);
+        LOG.info("Registered provider services for " + name
+            + (ranking != null ? " (service.ranking=" + ranking + ")" : ""));
+    }
+
+    void unbindOpenTelemetry(OpenTelemetry openTelemetry) {
+        List<ServiceRegistration<?>> regs = registrations.remove(openTelemetry);
+        if (regs != null) {
+            for (ServiceRegistration<?> reg : regs) {
+                try {
+                    reg.unregister();
+                } catch (IllegalStateException e) {
+                    // Already unregistered
+                }
+            }
+            LOG.info("Unregistered provider services for OpenTelemetry instance");
+        }
     }
 
     @Deactivate
-    public void deactivate() {
-        for (ServiceRegistration<?> registration : registrations) {
-            try {
-                registration.unregister();
-            } catch (IllegalStateException e) {
-                // Already unregistered
+    void deactivate() {
+        registrations.forEach((otel, regs) -> {
+            for (ServiceRegistration<?> reg : regs) {
+                try {
+                    reg.unregister();
+                } catch (IllegalStateException e) {
+                    // Already unregistered
+                }
             }
-        }
+        });
         registrations.clear();
-        LOG.info("Unregistered OpenTelemetry provider services");
+        LOG.info("OpenTelemetryProviderRegistration deactivated");
     }
 }

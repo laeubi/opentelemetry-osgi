@@ -27,6 +27,9 @@ COPY integrations/opentelemetry-osgi-log/pom.xml integrations/opentelemetry-osgi
 COPY integrations/opentelemetry-osgi-cm/pom.xml integrations/opentelemetry-osgi-cm/
 COPY integrations/opentelemetry-osgi-felix-healthcheck/pom.xml integrations/opentelemetry-osgi-felix-healthcheck/
 COPY integrations/opentelemetry-osgi-mxbeans/pom.xml integrations/opentelemetry-osgi-mxbeans/
+COPY integrations/opentelemetry-osgi-typedevent/pom.xml integrations/opentelemetry-osgi-typedevent/
+COPY integrations/opentelemetry-osgi-http-whiteboard/pom.xml integrations/opentelemetry-osgi-http-whiteboard/
+COPY integrations/opentelemetry-osgi-jaxrs-whiteboard/pom.xml integrations/opentelemetry-osgi-jaxrs-whiteboard/
 COPY demo/pom.xml demo/
 COPY demo/opentelemetry-osgi-demo/pom.xml demo/opentelemetry-osgi-demo/
 COPY features/pom.xml features/
@@ -41,6 +44,7 @@ COPY weaving/opentelemetry-osgi-weaving/pom.xml weaving/opentelemetry-osgi-weavi
 COPY weaving/opentelemetry-osgi-weaver-servlet/pom.xml weaving/opentelemetry-osgi-weaver-servlet/
 COPY weaving/opentelemetry-osgi-weaver-jdbc/pom.xml weaving/opentelemetry-osgi-weaver-jdbc/
 COPY weaving/opentelemetry-osgi-weaver-jaxrs/pom.xml weaving/opentelemetry-osgi-weaver-jaxrs/
+COPY weaving/opentelemetry-osgi-weaver-scr/pom.xml weaving/opentelemetry-osgi-weaver-scr/
 RUN mvn dependency:go-offline -q -B 2>/dev/null || true
 
 # Build the entire project including the Karaf distribution assembly
@@ -62,9 +66,9 @@ ENV PATH="${KARAF_HOME}/bin:${PATH}"
 RUN sed -i 's|^org.ops4j.pax.url.mvn.repositories=|#org.ops4j.pax.url.mvn.repositories=|' \
     ${KARAF_HOME}/etc/org.ops4j.pax.url.mvn.cfg
 
-# OTLP configuration is injected via environment variables at runtime.
-# The distribution includes a default config with exporterType=logging.
-# When OTEL_EXPORTER_OTLP_ENDPOINT is set, the runtime auto-switches to OTLP.
+# The distribution ships with the OTLP exporter configuration.
+# Environment variables OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_SERVICE_NAME
+# override the endpoint and service name at runtime.
 
 EXPOSE 8101 1099 44444 8181
 
