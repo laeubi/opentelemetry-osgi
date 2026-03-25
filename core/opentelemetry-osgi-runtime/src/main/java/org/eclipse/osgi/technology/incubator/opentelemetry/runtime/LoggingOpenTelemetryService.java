@@ -8,6 +8,7 @@ import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.ConfigurationPolicy;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Modified;
+import org.osgi.service.metatype.annotations.Designate;
 
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.exporter.logging.LoggingMetricExporter;
@@ -37,6 +38,7 @@ import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
     configurationPolicy = ConfigurationPolicy.REQUIRE,
     immediate = true
 )
+@Designate(ocd = LoggingOpenTelemetryConfiguration.class)
 public class LoggingOpenTelemetryService extends AbstractOpenTelemetryService {
 
     private static final Logger LOG = Logger.getLogger(LoggingOpenTelemetryService.class.getName());

@@ -39,6 +39,7 @@
         <osgi.service.component.annotations.version>1.5.1</osgi.service.component.annotations.version>
         <osgi.service.component.version>1.5.1</osgi.service.component.version>
         <osgi.annotation.bundle.version>2.0.0</osgi.annotation.bundle.version>
+        <osgi.service.metatype.annotations.version>1.4.1</osgi.service.metatype.annotations.version>
         <osgi.service.log.version>1.5.0</osgi.service.log.version>
         <osgi.service.cm.version>1.6.1</osgi.service.cm.version>
         <osgi.service.typedevent.version>1.0.0</osgi.service.typedevent.version>
@@ -98,6 +99,11 @@
                 <groupId>org.osgi</groupId>
                 <artifactId>org.osgi.annotation.bundle</artifactId>
                 <version>${osgi.annotation.bundle.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.osgi</groupId>
+                <artifactId>org.osgi.service.metatype.annotations</artifactId>
+                <version>${osgi.service.metatype.annotations.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.osgi</groupId>

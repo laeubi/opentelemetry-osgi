@@ -13,18 +13,22 @@ This is the core module that all other integration and demo modules depend on.
   - `io.opentelemetry.api.logs.LoggerProvider`
   - `io.opentelemetry.context.propagation.ContextPropagators`
 - Provider sub-services include an `opentelemetry.name` property for targeting a specific exporter
-- Multiple exporters can be active simultaneously (OTLP has higher service ranking)
+- Multiple exporters can be active simultaneously (OTLP variants have higher service ranking)
+- All configuration annotations use OSGi Metatype annotations for runtime discoverability
 
 ## Exporter Types
 
-| Exporter | Component Name | Configuration PID | Description |
-|---|---|---|---|
-| Logging | `logging-opentelemetry` | `...runtime.logging` | Exports to stdout via `java.util.logging` |
-| OTLP | `otlp-opentelemetry` | `...runtime.otlp` | Exports via OTLP/HTTP to a collector |
+| Exporter | Component Name | Configuration PID | Default Port | Description |
+|---|---|---|---|---|
+| Logging | `logging-opentelemetry` | `...runtime.logging` | — | Exports to stdout via `java.util.logging` |
+| OTLP/HTTP | `otlp-http-opentelemetry` | `...runtime.otlp.http` | 4318 | Exports via OTLP/HTTP to a collector |
+| OTLP/gRPC | `otlp-grpc-opentelemetry` | `...runtime.otlp.grpc` | 4317 | Exports via OTLP/gRPC to a collector |
 
 Each exporter activates only when its configuration PID exists in ConfigAdmin (i.e. a `.cfg` file is placed in `${karaf.etc}/`).
 
 ## Configuration
+
+All configuration interfaces use OSGi Metatype annotations (`@ObjectClassDefinition`, `@AttributeDefinition`) and are discoverable via management tools.
 
 ### Logging Exporter
 
@@ -37,20 +41,40 @@ PID: `org.eclipse.osgi.technology.incubator.opentelemetry.runtime.logging`
 | `serviceNamespace` | (empty) | Logical grouping (optional) |
 | `additionalResourceAttributes` | (empty) | Extra key=value resource attributes |
 
-### OTLP Exporter
+### OTLP/HTTP Exporter
 
-PID: `org.eclipse.osgi.technology.incubator.opentelemetry.runtime.otlp`
+PID: `org.eclipse.osgi.technology.incubator.opentelemetry.runtime.otlp.http`
 
-| Property | Default | Description |
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `serviceName` | String | `osgi-application` | Service name in telemetry data |
+| `serviceVersion` | String | `0.1.0` | Service version resource attribute |
+| `serviceNamespace` | String | (empty) | Logical grouping (optional) |
+| `endpoint` | String | `http://localhost:4318` | OTLP/HTTP collector endpoint (signal paths appended automatically) |
+| `timeout` | long | `10000` | Export timeout in milliseconds |
+| `connectTimeout` | long | `10000` | Connection timeout in milliseconds |
+| `compression` | String | `none` | Compression: `none` or `gzip` |
+| `headers` | String[] | (empty) | Additional HTTP headers as `key=value` pairs |
+| `aggregationTemporality` | String | `cumulative` | Metric aggregation: `cumulative` or `delta` |
+| `trustedCertificatesPath` | String | (empty) | PEM file with trusted CA certificates for TLS |
+| `clientCertificatePath` | String | (empty) | PEM file with client certificate for mTLS |
+| `clientKeyPath` | String | (empty) | PEM file with client private key (PKCS#8) for mTLS |
+| `additionalResourceAttributes` | String[] | (empty) | Extra key=value resource attributes |
+
+### OTLP/gRPC Exporter
+
+PID: `org.eclipse.osgi.technology.incubator.opentelemetry.runtime.otlp.grpc`
+
+Same configuration options as OTLP/HTTP, with these differences:
+- Default `endpoint`: `http://localhost:4317` (gRPC port)
+- The endpoint is used as-is (gRPC multiplexes all signals on one connection)
+
+### Environment Variable Overrides
+
+| Variable | Overrides | Scope |
 |---|---|---|
-| `serviceName` | `osgi-application` | Service name in telemetry data |
-| `serviceVersion` | `0.1.0` | Service version resource attribute |
-| `serviceNamespace` | (empty) | Logical grouping (optional) |
-| `otlpEndpoint` | `http://localhost:4318` | OTLP/HTTP collector endpoint |
-| `additionalResourceAttributes` | (empty) | Extra key=value resource attributes |
-
-The `OTEL_SERVICE_NAME` environment variable overrides `serviceName` for all exporters.
-The `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable overrides `otlpEndpoint` for the OTLP exporter.
+| `OTEL_SERVICE_NAME` | `serviceName` | All exporters |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `endpoint` | OTLP exporters only |
 
 ## Resource Attributes
 
@@ -79,10 +103,12 @@ Additional resource attributes can be configured via `additionalResourceAttribut
 |---|---|
 | `AbstractOpenTelemetryService` | Base class with resource building, SDK lifecycle, and delegation |
 | `LoggingOpenTelemetryService` | DS component publishing `OpenTelemetry` with logging exporters |
-| `OtlpOpenTelemetryService` | DS component publishing `OpenTelemetry` with OTLP/HTTP exporters |
+| `OtlpHttpOpenTelemetryService` | DS component publishing `OpenTelemetry` with OTLP/HTTP exporters |
+| `OtlpGrpcOpenTelemetryService` | DS component publishing `OpenTelemetry` with OTLP/gRPC exporters |
 | `OpenTelemetryProviderRegistration` | DS component registering individual provider services per exporter |
-| `LoggingOpenTelemetryConfiguration` | ConfigAdmin annotation for the logging exporter |
-| `OtlpOpenTelemetryConfiguration` | ConfigAdmin annotation for the OTLP exporter |
+| `LoggingOpenTelemetryConfiguration` | Metatype-annotated config for the logging exporter |
+| `OtlpHttpOpenTelemetryConfiguration` | Metatype-annotated config for the OTLP/HTTP exporter |
+| `OtlpGrpcOpenTelemetryConfiguration` | Metatype-annotated config for the OTLP/gRPC exporter |
 
 ## Usage
 
@@ -103,17 +129,17 @@ When multiple exporters are active, consumers can target a specific one using th
 `opentelemetry.name` service property:
 
 ```java
-@Reference(target = "(opentelemetry.name=otlp-opentelemetry)")
+@Reference(target = "(opentelemetry.name=otlp-http-opentelemetry)")
 private TracerProvider tracerProvider;
 ```
 
-Without a target filter, consumers get the highest-ranked exporter (OTLP by default).
+Without a target filter, consumers get the highest-ranked exporter (OTLP variants by default, ranking=100).
 
 ## Adding New Exporters
 
 To add a new exporter type:
 
-1. Create a configuration annotation with `COMPONENT_NAME` and `PID` constants
-2. Create a service class extending `AbstractOpenTelemetryService`
+1. Create a configuration annotation with `COMPONENT_NAME` and `PID` constants, annotated with `@ObjectClassDefinition`
+2. Create a service class extending `AbstractOpenTelemetryService`, annotated with `@Designate(ocd = YourConfig.class)`
 3. Use `@Component(name = YourConfig.COMPONENT_NAME, configurationPid = YourConfig.PID, ...)`
 4. Add any required exporter dependencies to `pom.xml` and the Karaf feature descriptor

@@ -26,10 +26,12 @@ opentelemetry-osgi/
 │       └── src/main/java/org/eclipse/osgi/technology/incubator/opentelemetry/runtime/
 │           ├── AbstractOpenTelemetryService.java        # Base class with resource building, SDK lifecycle
 │           ├── LoggingOpenTelemetryService.java         # Logging exporter service
-│           ├── OtlpOpenTelemetryService.java            # OTLP/HTTP exporter service
+│           ├── OtlpHttpOpenTelemetryService.java        # OTLP/HTTP exporter service
+│           ├── OtlpGrpcOpenTelemetryService.java        # OTLP/gRPC exporter service
 │           ├── OpenTelemetryProviderRegistration.java   # Dynamic 1..n provider registration
-│           ├── LoggingOpenTelemetryConfiguration.java   # Logging exporter config annotation
-│           └── OtlpOpenTelemetryConfiguration.java      # OTLP exporter config annotation
+│           ├── LoggingOpenTelemetryConfiguration.java   # Logging exporter config (with Metatype)
+│           ├── OtlpHttpOpenTelemetryConfiguration.java  # OTLP/HTTP config (with Metatype)
+│           └── OtlpGrpcOpenTelemetryConfiguration.java  # OTLP/gRPC config (with Metatype)
 ├── integrations/                    # OSGi subsystem bridges
 │   ├── pom.xml                      # Aggregator POM
 │   ├── opentelemetry-osgi-framework/  # Framework bridge (bundles, services, events)
@@ -243,12 +245,20 @@ All exporters extend `AbstractOpenTelemetryService` which provides resource buil
 | Service | Component Name | PID | Ranking |
 |---|---|---|---|
 | `LoggingOpenTelemetryService` | `logging-opentelemetry` | `...runtime.logging` | 0 (default) |
-| `OtlpOpenTelemetryService` | `otlp-opentelemetry` | `...runtime.otlp` | 100 |
+| `OtlpHttpOpenTelemetryService` | `otlp-http-opentelemetry` | `...runtime.otlp.http` | 100 |
+| `OtlpGrpcOpenTelemetryService` | `otlp-grpc-opentelemetry` | `...runtime.otlp.grpc` | 100 |
 
 Each service:
 - Uses `configurationPolicy = REQUIRE` — activates only when its PID config exists
 - Has a short `component.name` defined as a constant in its configuration annotation (`COMPONENT_NAME`)
 - Publishes `OpenTelemetry` as an OSGi service
+- Uses `@Designate(ocd = ...)` to link to its Metatype-annotated configuration
+
+### Metatype Annotations
+
+All configuration annotations use OSGi Metatype annotations (`@ObjectClassDefinition`, `@AttributeDefinition`) for runtime discoverability.
+This generates metatype XML that management tools (e.g. Karaf's `config:meta` command) can use to display configuration options with names, descriptions, and valid values.
+Enum-like properties (compression, aggregation temporality) use `@AttributeDefinition(options = @Option(...))` for predefined choices.
 
 ### Provider Registration
 
@@ -259,22 +269,22 @@ For each bound service, it registers `TracerProvider`, `MeterProvider`, `LoggerP
 
 Consumers can target a specific exporter:
 ```java
-@Reference(target = "(opentelemetry.name=otlp-opentelemetry)")
+@Reference(target = "(opentelemetry.name=otlp-http-opentelemetry)")
 private TracerProvider tracerProvider;
 ```
 
 ### Adding New Exporters
 
-1. Create a configuration annotation with `COMPONENT_NAME` and `PID` constants
+1. Create a configuration annotation with `COMPONENT_NAME` and `PID` constants, annotated with `@ObjectClassDefinition`
 2. Create a service class extending `AbstractOpenTelemetryService`
-3. Annotate with `@Component(name = Config.COMPONENT_NAME, configurationPid = Config.PID, ...)`
+3. Annotate with `@Component(name = Config.COMPONENT_NAME, configurationPid = Config.PID, ...)` and `@Designate(ocd = Config.class)`
 4. Add exporter dependencies to `pom.xml` and the Karaf feature `opentelemetry-deps`
 
 ### Configuration Files
 
-- **Karaf distribution** ships `org.eclipse.osgi.technology.incubator.opentelemetry.runtime.otlp.cfg` in `etc/`
-- **Feature resources** include example `.cfg` files for both logging and OTLP exporters
-- **Docker** uses the distribution's OTLP config with env var overrides (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`)
+- **Karaf distribution** ships `org.eclipse.osgi.technology.incubator.opentelemetry.runtime.otlp.http.cfg` in `etc/`
+- **Feature resources** include example `.cfg` files for logging, OTLP/HTTP, and OTLP/gRPC exporters
+- **Docker** uses the distribution's OTLP/HTTP config with env var overrides (`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`)
 
 ## Docker Architecture
 
@@ -415,6 +425,7 @@ All versions are centralized in the parent POM properties:
 | `osgi.service.component.version` | `1.5.1` | DS runtime |
 | `osgi.service.log.version` | `1.5.0` | OSGi Log Service |
 | `osgi.annotation.bundle.version` | `2.0.0` | Bundle annotations |
+| `osgi.service.metatype.annotations.version` | `1.4.1` | Metatype annotations |
 | `felix.healthcheck.api.version` | `2.0.4` | Felix Health Check API |
 | `felix.healthcheck.core.version` | `2.0.8` | Felix Health Check Core |
 | `felix.healthcheck.generalchecks.version` | `3.0.8` | Felix Health Check General Checks |
@@ -439,8 +450,8 @@ The project uses three separate Karaf feature modules, each producing its own fe
 ### opentelemetry-osgi-karaf-feature (Runtime)
 
 - Defines `opentelemetry-deps` (14 wrapped OTel SDK JARs + SPI Fly) and `opentelemetry-osgi` (runtime bundle)
-- Example `.cfg` files in `src/main/resources/` for logging and OTLP exporters
-- Each exporter type has its own PID: `...runtime.logging` and `...runtime.otlp`
+- Example `.cfg` files in `src/main/resources/` for logging, OTLP/HTTP, and OTLP/gRPC exporters
+- Each exporter type has its own PID: `...runtime.logging`, `...runtime.otlp.http`, `...runtime.otlp.grpc`
 
 ### opentelemetry-osgi-integration-karaf-feature (Integrations)
 
@@ -838,7 +849,7 @@ curl -s 'http://localhost:3000/render/d/osgi-overview/osgi-observability-overvie
 - **Non-bundle modules**: Agent (`<packaging>jar</packaging>` with bnd disabled) and karaf-features (`<packaging>feature</packaging>`) are not OSGi bundles.
 - **OTel JARs are NOT OSGi bundles**: They lack `Bundle-SymbolicName` headers. In Karaf, they are wrapped via the `wrap:` protocol in the feature descriptor with SPI Fly headers.
 - **SPI Fly**: OpenTelemetry uses `ServiceLoader` internally. In OSGi, cross-bundle SPI requires Apache Aries SPI Fly. Add `SPI-Consumer=*` / `SPI-Provider=*` headers to wrapped bundles and depend on the `spifly` Karaf feature.
-- **OTLP exporter**: The `OtlpOpenTelemetryService` activates when a configuration with PID `org.eclipse.osgi.technology.incubator.opentelemetry.runtime.otlp` exists. The `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable overrides the `otlpEndpoint` config property. The OTLP service has `service.ranking=100`, making it preferred over the logging exporter when both are active.
+- **OTLP exporter**: The OTLP/HTTP (`OtlpHttpOpenTelemetryService`) and OTLP/gRPC (`OtlpGrpcOpenTelemetryService`) services activate when their respective configurations exist (`...runtime.otlp.http` or `...runtime.otlp.grpc`). The `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable overrides the `endpoint` config property. OTLP services have `service.ranking=100`, making them preferred over the logging exporter. Both OTLP variants are in the same `opentelemetry-exporter-otlp` artifact — no extra dependency needed. HTTP uses port 4318 (appends /v1/traces etc.), gRPC uses port 4317 (single endpoint). The JDK sender (`opentelemetry-exporter-sender-jdk`) supports both HTTP and gRPC (gRPC over HTTP/2 via JDK HttpClient).
 - **Prometheus listen port**: Prometheus is configured to listen on port 9080 (`--web.listen-address=0.0.0.0:9080`) instead of the default 9090, matching the OTel Collector's remote-write target and the docker-compose port mapping.
 - **Grafana datasource UIDs**: Datasources use explicit stable UIDs (`tempo`, `prometheus`, `loki`) in the provisioning config. Always reference these UIDs in dashboard JSON — do not use auto-generated UIDs.
 - **Docker uses pre-built distribution**: The `docker/Dockerfile` builds with Maven, then copies the assembled Karaf distribution from `features/opentelemetry-osgi-karaf-distribution/target/assembly` — all features, bundles, and config are pre-embedded

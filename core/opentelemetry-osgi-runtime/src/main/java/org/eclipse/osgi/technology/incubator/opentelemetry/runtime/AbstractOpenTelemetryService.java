@@ -1,5 +1,11 @@
 package org.eclipse.osgi.technology.incubator.opentelemetry.runtime;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -57,6 +63,55 @@ public abstract class AbstractOpenTelemetryService implements OpenTelemetry {
     protected String resolveServiceName(String configValue) {
         String env = System.getenv("OTEL_SERVICE_NAME");
         return (env != null && !env.isEmpty()) ? env : configValue;
+    }
+
+    /**
+     * Resolves the OTLP endpoint, preferring the {@code OTEL_EXPORTER_OTLP_ENDPOINT}
+     * environment variable over the configuration value.
+     */
+    protected String resolveEndpoint(String configValue) {
+        String env = System.getenv("OTEL_EXPORTER_OTLP_ENDPOINT");
+        return (env != null && !env.isEmpty()) ? env : configValue;
+    }
+
+    /**
+     * Converts a timeout value in milliseconds to a {@link Duration}.
+     */
+    protected Duration toDuration(long millis) {
+        return Duration.ofMillis(millis);
+    }
+
+    /**
+     * Parses an array of {@code key=value} strings into a map.
+     */
+    protected Map<String, String> parseKeyValuePairs(String[] pairs) {
+        Map<String, String> result = new LinkedHashMap<>();
+        if (pairs != null) {
+            for (String pair : pairs) {
+                int eq = pair.indexOf('=');
+                if (eq > 0) {
+                    result.put(pair.substring(0, eq).trim(), pair.substring(eq + 1).trim());
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Reads a PEM-encoded file from disk.
+     *
+     * @return the file contents, or {@code null} if the path is empty or the file cannot be read
+     */
+    protected byte[] readPemFile(String path) {
+        if (path == null || path.isEmpty()) {
+            return null;
+        }
+        try {
+            return Files.readAllBytes(Path.of(path));
+        } catch (IOException e) {
+            LOG.log(Level.WARNING, "Failed to read PEM file: " + path, e);
+            return null;
+        }
     }
 
     /**
